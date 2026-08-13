@@ -135,6 +135,7 @@ dist
 
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
+.vs
 
 # yarn v2
 .yarn/cache
@@ -142,3 +143,4 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+cfmstats-501b6-firebase-adminsdk-fbsvc-fcf9533ae1.json
