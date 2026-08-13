@@ -4,7 +4,7 @@ import LeagueSettingsDB from "./discord/settings_db"
 import { MaddenEvents } from "./db/madden_db";
 
 async function getStaleDocuments() {
-  const collectionRef = db.collection('madden_data26')
+  const collectionRef = db.collection('madden_data27')
 
   // Calculate the date 30 days ago
   const thirtyDaysAgo = new Date()
@@ -54,7 +54,7 @@ async function deleteLeague(leagueId: string) {
   console.log(`Starting deletion of league: ${leagueId}...`);
 
   try {
-    const leagueDocRef = db.collection("madden_data26").doc(leagueId);
+    const leagueDocRef = db.collection("madden_data27").doc(leagueId);
 
     // Get all subcollection names from the enum
     const subcollectionNames = Object.values(MaddenEvents);

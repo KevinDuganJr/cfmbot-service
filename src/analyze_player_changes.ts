@@ -16,7 +16,7 @@ async function analyzeFieldChanges(): Promise<FieldChangeCount> {
     console.log('Fetching all MADDEN_PLAYER documents...');
     
     // Get all player documents for a league
-    const playersSnapshot = await db.collection("madden_data26").doc("3370549").collection("MADDEN_PLAYER").get();
+    const playersSnapshot = await db.collection("madden_data27").doc("3370549").collection("MADDEN_PLAYER").get();
     const totalPlayers = playersSnapshot.size;
     console.log(`Total players to analyze: ${totalPlayers}`);
 
@@ -30,7 +30,7 @@ async function analyzeFieldChanges(): Promise<FieldChangeCount> {
       
       try {
         // Get the history subcollection for this player
-        const historySnapshot = await db.collection("madden_data26").doc("3370549").collection("MADDEN_PLAYER").doc(playerId).collection("history").get();
+        const historySnapshot = await db.collection("madden_data27").doc("3370549").collection("MADDEN_PLAYER").doc(playerId).collection("history").get();
         
         if (!historySnapshot.empty) {
           playersWithHistory++;
