@@ -6,6 +6,20 @@ export const MACHINE_KEY = "444d362e8e067fe2"
 export const EA_LOGIN_URL = `https://accounts.ea.com/connect/auth?hide_create=true&release_type=prod&response_type=code&redirect_uri=${REDIRECT_URL}&client_id=${CLIENT_ID}&machineProfileKey=${MACHINE_KEY}&authentication_source=${AUTH_SOURCE}`
 
 
+// Madden 25
+// wfGAWnrxLroZOwwELYA2ZrAuaycuF2WDb00zOLv48Sb79viJDGlyD6OyK8pM5eIiv_20240731135155
+// MCA_25_COMP_APP
+
+// Madden 26
+// teJpJ9cSXFqZAuKNW8IuHpy8D4dwWPoVrPoek38iCnrGbrUSfjqnHMBAv8iCVjeSm_20250910175618
+// MCA_26_COMP_APP
+
+// Madden 27 (placeholder values until MCA comes out Sept 1st)
+// teJpJ9cSXFqZAuKNW8IuHpy8D4dwWPoVrPoek38iCnrGbrUSfjqnHMBAv8iCVjeSm_20250910175618
+// MCA_26_COMP_APP
+
+
+
 export const TWO_DIGIT_YEAR = "26"
 export const YEAR = "2027"
 
