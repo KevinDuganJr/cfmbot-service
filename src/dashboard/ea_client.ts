@@ -248,7 +248,7 @@ async function refreshBlazeSession(token: TokenInformation, session: SessionInfo
       componentId: 2060,
       commandId: 801,
       requestPayload: {},
-      componentName: "careermode",
+      componentName: "franchisemode",
     })
     return session
   } catch (e) {
@@ -269,7 +269,7 @@ export async function ephemeralClientFromToken(token: TokenInformation, session?
         componentId: 2060,
         commandId: 801,
         requestPayload: {},
-        componentName: "careermode",
+        componentName: "franchisemode",
       })
       return res.responseInfo.value.leagues
     },
@@ -281,7 +281,7 @@ export async function ephemeralClientFromToken(token: TokenInformation, session?
         requestPayload: {
           leagueId: leagueId
         },
-        componentName: "careermode",
+        componentName: "franchisemode",
       })
       return res.responseInfo.value
     },
