@@ -22,6 +22,7 @@ async function main() {
     expiry: new Date(Date.now() + 60 * 60 * 1000),
     console: console_,
     blazeId: "0",
+    gameYear: "26",
   }
   try {
     const client = await ephemeralClientFromToken(token)
