@@ -1,5 +1,5 @@
 import { Agent, fetch } from "undici";
-import { CLIENT_ID, CLIENT_SECRET, AUTH_SOURCE, AccountToken, BLAZE_SERVICE, SystemConsole, BLAZE_PRODUCT_NAME, BlazeAuthenticatedResponse, MACHINE_KEY, League, GetMyLeaguesResponse, LeagueResponse, BlazeLeagueResponse } from "./ea_constants"
+import { AUTH_SOURCE, AccountToken, BLAZE_SERVICE_BY_YEAR, SystemConsole, BLAZE_PRODUCT_NAME_BY_YEAR, BlazeAuthenticatedResponse, MACHINE_KEY, League, GetMyLeaguesResponse, LeagueResponse, BlazeLeagueResponse, GameYear, GAME_CONFIG } from "./ea_constants"
 import { constants, randomBytes, createHash, randomUUID } from "crypto"
 import { Buffer } from "buffer"
 import { TeamExport, StandingExport, SchedulesExport, RushingExport, TeamStatsExport, PuntingExport, ReceivingExport, DefensiveExport, KickingExport, PassingExport, RosterExport } from "../export/madden_league_types"
@@ -51,7 +51,7 @@ interface EAClient {
 }
 
 
-export type TokenInformation = { accessToken: string, refreshToken: string, expiry: Date, console: SystemConsole, blazeId: string }
+export type TokenInformation = { accessToken: string, refreshToken: string, expiry: Date, console: SystemConsole, blazeId: string, gameYear: GameYear }
 export type SessionInformation = { blazeId: number, sessionKey: string, requestId: number }
 type MessageAuth = { authData: string, authCode: string, authType: number }
 export type BlazeRequest = { commandName: string, componentId: number, commandId: number, requestPayload: Record<string, any>, componentName: string }
@@ -90,7 +90,7 @@ const headers = (t: TokenInformation) => {
   return {
     "Accept-Charset": "UTF-8",
     "Accept": "application/json",
-    "X-BLAZE-ID": BLAZE_SERVICE[t.console],
+    "X-BLAZE-ID": BLAZE_SERVICE_BY_YEAR[t.gameYear][t.console],
     "X-BLAZE-VOID-RESP": "XML",
     "X-Application-Key": "MADDEN-MCA",
     "Content-Type": "application/json",
@@ -111,14 +111,14 @@ async function refreshToken(token: TokenInformation): Promise<TokenInformation> 
         "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
         "Accept-Encoding": "gzip",
       },
-      body: `grant_type=refresh_token&client_id=${CLIENT_ID}&client_secret=${CLIENT_SECRET}&release_type=prod&refresh_token=${token.refreshToken}&authentication_source=${AUTH_SOURCE}&token_format=JWS`,
+      body: `grant_type=refresh_token&client_id=${GAME_CONFIG[token.gameYear].clientId}&client_secret=${GAME_CONFIG[token.gameYear].clientSecret}&release_type=prod&refresh_token=${token.refreshToken}&authentication_source=${AUTH_SOURCE}&token_format=JWS`,
     });
     const newToken = await res.json() as AccountToken
     if (!res.ok || !newToken.access_token) {
       throw new EAAccountError(`Error refreshing tokens, response from EA ${JSON.stringify(newToken)}`, `Lost connection to EA. Connect this league again via ${DEPLOYMENT_URL}/dashboard`)
     }
     const newExpiry = new Date(new Date().getTime() + newToken.expires_in * 1000)
-    return { accessToken: newToken.access_token, refreshToken: newToken.refresh_token, expiry: newExpiry, console: token.console, blazeId: `${token.blazeId}` }
+    return { accessToken: newToken.access_token, refreshToken: newToken.refresh_token, expiry: newExpiry, console: token.console, blazeId: `${token.blazeId}`, gameYear: token.gameYear }
   } else {
     return token
   }
@@ -133,7 +133,7 @@ async function retrieveBlazeSession(token: TokenInformation): Promise<SessionInf
       headers: headers(token),
       body: JSON.stringify({
         accessToken: token.accessToken,
-        productName: BLAZE_PRODUCT_NAME[token.console],
+        productName: BLAZE_PRODUCT_NAME_BY_YEAR[token.gameYear][token.console],
       }),
     }
   )
@@ -248,7 +248,7 @@ async function refreshBlazeSession(token: TokenInformation, session: SessionInfo
       componentId: 2060,
       commandId: 801,
       requestPayload: {},
-      componentName: "franchisemode",
+      componentName: GAME_CONFIG[token.gameYear].componentName,
     })
     return session
   } catch (e) {
@@ -269,7 +269,7 @@ export async function ephemeralClientFromToken(token: TokenInformation, session?
         componentId: 2060,
         commandId: 801,
         requestPayload: {},
-        componentName: "franchisemode",
+        componentName: GAME_CONFIG[token.gameYear].componentName,
       })
       return res.responseInfo.value.leagues
     },
@@ -281,7 +281,7 @@ export async function ephemeralClientFromToken(token: TokenInformation, session?
         requestPayload: {
           leagueId: leagueId
         },
-        componentName: "franchisemode",
+        componentName: GAME_CONFIG[token.gameYear].componentName,
       })
       return res.responseInfo.value
     },

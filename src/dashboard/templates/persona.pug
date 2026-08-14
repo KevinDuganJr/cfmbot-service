@@ -27,7 +27,7 @@ html
                     span.input-group-text Persona
                     select#selectedPersona.form-select(name="selected_persona" required=true)
                       each persona in personas
-                        option(value=`${JSON.stringify(persona)}`) #{persona.displayName} - #{namespaces[persona.namespaceName]} - #{persona.maddenEntitlement}
+                        option(value=`${JSON.stringify(persona)}`) #{persona.displayName} - #{namespaces[persona.namespaceName]} - #{gameConfig[persona.gameYear].label}
                 .mb-5
                   label.form-label(for="consoleOverride")
                   .input-group

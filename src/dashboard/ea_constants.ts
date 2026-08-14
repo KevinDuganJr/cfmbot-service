@@ -1,36 +1,53 @@
 export const AUTH_SOURCE = 317239
-export const CLIENT_SECRET = "teJpJ9cSXFqZAuKNW8IuHpy8D4dwWPoVrPoek38iCnrGbrUSfjqnHMBAv8iCVjeSm_20250910175618"
 export const REDIRECT_URL = "http://127.0.0.1/success"
-export const CLIENT_ID = "MCA_26_COMP_APP"
 export const MACHINE_KEY = "444d362e8e067fe2"
+
+export type GameYear = "25" | "26" | "27"
+export const GAME_YEARS: GameYear[] = ["25", "26", "27"]
+export type EntitlementYear = "25" | "26"
+export const ENTITLEMENT_YEARS: EntitlementYear[] = ["25", "26"]
+
+export const GAME_CONFIG: Record<GameYear, { entitlementYear: EntitlementYear, clientId: string, clientSecret: string, blazeYear: string, componentName: string, label: string }> = {
+  "25": { entitlementYear: "25", clientId: "MCA_25_COMP_APP", clientSecret: "wfGAWnrxLroZOwwELYA2ZrAuaycuF2WDb00zOLv48Sb79viJDGlyD6OyK8pM5eIiv_20240731135155", blazeYear: "2025", componentName: "careermode", label: "Madden 25" },
+  "26": { entitlementYear: "26", clientId: "MCA_26_COMP_APP", clientSecret: "teJpJ9cSXFqZAuKNW8IuHpy8D4dwWPoVrPoek38iCnrGbrUSfjqnHMBAv8iCVjeSm_20250910175618", blazeYear: "2026", componentName: "careermode", label: "Madden 26" },
+  // placeholder: rides on the M26 entitlement/app until MCA_27 releases (Sept 1st), but talks to the M27 blaze servers
+  "27": { entitlementYear: "26", clientId: "MCA_26_COMP_APP", clientSecret: "teJpJ9cSXFqZAuKNW8IuHpy8D4dwWPoVrPoek38iCnrGbrUSfjqnHMBAv8iCVjeSm_20250910175618", blazeYear: "2027", componentName: "franchisemode", label: "Madden 27 (early access)" },
+}
+
+// which GameYears are reachable from a given EA entitlement generation, e.g. "26" -> ["26","27"]
+export const GAME_YEARS_FOR_ENTITLEMENT_YEAR: Record<EntitlementYear, GameYear[]> = ENTITLEMENT_YEARS.reduce((acc, ey) => {
+  acc[ey] = GAME_YEARS.filter(gy => GAME_CONFIG[gy].entitlementYear === ey)
+  return acc
+}, {} as Record<EntitlementYear, GameYear[]>)
+
+// default client used for the initial EA login link (any game year's app can be used to log in)
+export const TWO_DIGIT_YEAR: GameYear = "26"
+export const CLIENT_ID = GAME_CONFIG[TWO_DIGIT_YEAR].clientId
+export const CLIENT_SECRET = GAME_CONFIG[TWO_DIGIT_YEAR].clientSecret
+export const YEAR = GAME_CONFIG[TWO_DIGIT_YEAR].blazeYear
 export const EA_LOGIN_URL = `https://accounts.ea.com/connect/auth?hide_create=true&release_type=prod&response_type=code&redirect_uri=${REDIRECT_URL}&client_id=${CLIENT_ID}&machineProfileKey=${MACHINE_KEY}&authentication_source=${AUTH_SOURCE}`
 
-
-// Madden 25
-// wfGAWnrxLroZOwwELYA2ZrAuaycuF2WDb00zOLv48Sb79viJDGlyD6OyK8pM5eIiv_20240731135155
-// MCA_25_COMP_APP
-
-// Madden 26
-// teJpJ9cSXFqZAuKNW8IuHpy8D4dwWPoVrPoek38iCnrGbrUSfjqnHMBAv8iCVjeSm_20250910175618
-// MCA_26_COMP_APP
-
-// Madden 27 (placeholder values until MCA comes out Sept 1st)
-// teJpJ9cSXFqZAuKNW8IuHpy8D4dwWPoVrPoek38iCnrGbrUSfjqnHMBAv8iCVjeSm_20250910175618
-// MCA_26_COMP_APP
-
-
-
-export const TWO_DIGIT_YEAR = "26"
-export const YEAR = "2027"
-
-export const VALID_ENTITLEMENTS = ((a: string) => ({
+const entitlementsForYear = (a: string) => ({
   xone: `MADDEN_${a}XONE`,
   ps4: `MADDEN_${a}PS4`,
   pc: `MADDEN_${a}PC`,
   ps5: `MADDEN_${a}PS5`,
   xbsx: `MADDEN_${a}XBSX`,
   stadia: `MADDEN_${a}SDA`,
-}))(TWO_DIGIT_YEAR)
+})
+
+export const VALID_ENTITLEMENTS_BY_YEAR: Record<EntitlementYear, Record<string, string>> = {
+  "25": entitlementsForYear("25"),
+  "26": entitlementsForYear("26"),
+}
+
+// every valid madden entitlement group name across all supported entitlement generations
+export const VALID_ENTITLEMENTS = ENTITLEMENT_YEARS.flatMap(y => Object.values(VALID_ENTITLEMENTS_BY_YEAR[y]))
+
+// reverse lookup: entitlement group name (e.g. MADDEN_26PS5) -> which entitlement generation it belongs to
+export const ENTITLEMENT_TO_ENTITLEMENT_YEAR: Record<string, EntitlementYear> = Object.fromEntries(
+  ENTITLEMENT_YEARS.flatMap(y => Object.values(VALID_ENTITLEMENTS_BY_YEAR[y]).map(entitlement => [entitlement, y]))
+)
 
 export enum SystemConsole {
   XBOX_ONE = "xone",
@@ -53,32 +70,43 @@ export enum ConsoleOverride {
 
 export const ALL_CONSOLES = Object.values(ConsoleOverride)
 
-export const ENTITLEMENT_TO_SYSTEM = ((a: string) => ({
+const entitlementToSystemForYear = (a: string) => ({
   [`MADDEN_${a}XONE`]: SystemConsole.XBOX_ONE,
   [`MADDEN_${a}PS4`]: SystemConsole.PS4,
   [`MADDEN_${a}PC`]: SystemConsole.PC,
   [`MADDEN_${a}PS5`]: SystemConsole.PS5,
   [`MADDEN_${a}XBSX`]: SystemConsole.XBOX_X,
   [`MADDEN_${a}SDA`]: SystemConsole.STADIA,
-}))(TWO_DIGIT_YEAR)
+})
+export const ENTITLEMENT_TO_SYSTEM: { [key: string]: SystemConsole } = Object.assign(
+  {}, ...ENTITLEMENT_YEARS.map(y => entitlementToSystemForYear(y))
+)
 
-export const ENTITLEMENT_TO_VALID_NAMESPACE = ((a: string) => ({
+const entitlementToNamespaceForYear = (a: string) => ({
   [`MADDEN_${a}XONE`]: "xbox",
   [`MADDEN_${a}PS4`]: "ps3",
   [`MADDEN_${a}PC`]: "cem_ea_id",
   [`MADDEN_${a}PS5`]: "ps3",
   [`MADDEN_${a}XBSX`]: "xbox",
   [`MADDEN_${a}SDA`]: "stadia",
-}))(TWO_DIGIT_YEAR)
+})
+export const ENTITLEMENT_TO_VALID_NAMESPACE: { [key: string]: Namespace } = Object.assign(
+  {}, ...ENTITLEMENT_YEARS.map(y => entitlementToNamespaceForYear(y))
+)
 
-export const CONSOLE_OVERRIDE_TO_ENTITLEMENT = ((a: string) => ({
+const consoleOverrideToEntitlementForYear = (a: string) => ({
   [ConsoleOverride.XBOX_ONE]: `MADDEN_${a}XONE`,
   [ConsoleOverride.PS4]: `MADDEN_${a}PS4`,
   [ConsoleOverride.PC]: `MADDEN_${a}PC`,
   [ConsoleOverride.PS5]: `MADDEN_${a}PS5`,
   [ConsoleOverride.XBOX_X]: `MADDEN_${a}XBSX`,
   [ConsoleOverride.STADIA]: `MADDEN_${a}SDA`,
-}))(TWO_DIGIT_YEAR)
+})
+// console override entitlement depends on the persona's EA entitlement generation, not the chosen GameYear
+export const CONSOLE_OVERRIDE_TO_ENTITLEMENT_BY_YEAR: Record<EntitlementYear, { [key: string]: string }> = {
+  "25": consoleOverrideToEntitlementForYear("25"),
+  "26": consoleOverrideToEntitlementForYear("26"),
+}
 
 export const CONSOLE_OVERRIDE_TO_VALID_NAMESPACE: { [key: string]: Namespace } = {
   [ConsoleOverride.XBOX_ONE]: "xbox",
@@ -105,14 +133,20 @@ export const NAMESPACES = {
   stadia: "Stadia",
 }
 
-export const BLAZE_SERVICE = ((a: string) => ({
+const blazeServiceForYear = (a: string) => ({
   xone: `madden-${a}-xone`,
   ps4: `madden-${a}-ps4`,
   pc: `madden-${a}-pc`,
   ps5: `madden-${a}-ps5`,
   xbsx: `madden-${a}-xbsx`,
   stadia: `madden-${a}-stadia`,
-}))(YEAR)
+})
+export const BLAZE_SERVICE_BY_YEAR: Record<GameYear, { [key in SystemConsole]: string }> = {
+  "25": blazeServiceForYear(GAME_CONFIG["25"].blazeYear),
+  "26": blazeServiceForYear(GAME_CONFIG["26"].blazeYear),
+  "27": blazeServiceForYear(GAME_CONFIG["27"].blazeYear),
+}
+export const BLAZE_SERVICE = BLAZE_SERVICE_BY_YEAR[TWO_DIGIT_YEAR]
 
 export const BLAZE_SERVICE_TO_PATH = ((a: string) => ({
   [`madden-${a}-xone-gen4`]: "xone",
@@ -123,14 +157,20 @@ export const BLAZE_SERVICE_TO_PATH = ((a: string) => ({
   [`madden-${a}-stadia-gen5`]: "stadia",
 }))(YEAR)
 
-export const BLAZE_PRODUCT_NAME = ((a: string) => ({
+const blazeProductNameForYear = (a: string) => ({
   xone: `madden-${a}-xone-mca`,
   ps4: `madden-${a}-ps4-mca`,
   pc: `madden-${a}-pc-mca`,
   ps5: `madden-${a}-ps5-mca`,
   xbsx: `madden-${a}-xbsx-mca`,
   stadia: `madden-${a}-stadia-mca`,
-}))(YEAR)
+})
+export const BLAZE_PRODUCT_NAME_BY_YEAR: Record<GameYear, { [key in SystemConsole]: string }> = {
+  "25": blazeProductNameForYear(GAME_CONFIG["25"].blazeYear),
+  "26": blazeProductNameForYear(GAME_CONFIG["26"].blazeYear),
+  "27": blazeProductNameForYear(GAME_CONFIG["27"].blazeYear),
+}
+export const BLAZE_PRODUCT_NAME = BLAZE_PRODUCT_NAME_BY_YEAR[TWO_DIGIT_YEAR]
 
 /*
   I want to document the response types from EA. Some of these should be more narrowly defined, but I do not know what all the enumerations are. I welcome in the future if we find more values that we change these to be narrower so we can safely rely on the values better

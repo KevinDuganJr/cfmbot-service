@@ -2,7 +2,7 @@ import Router from "@koa/router"
 import Pug from "pug"
 import path from "path"
 import { Next, ParameterizedContext } from "koa"
-import { EA_LOGIN_URL, AUTH_SOURCE, CLIENT_SECRET, REDIRECT_URL, CLIENT_ID, AccountToken, TokenInfo, Entitlements, VALID_ENTITLEMENTS, Persona, MACHINE_KEY, Personas, ENTITLEMENT_TO_VALID_NAMESPACE, NAMESPACES, ENTITLEMENT_TO_SYSTEM, SystemConsole, exportOptions, seasonType, ALL_CONSOLES, ConsoleOverride, CONSOLE_OVERRIDE_TO_ENTITLEMENT, CONSOLE_OVERRIDE_TO_VALID_NAMESPACE } from "./ea_constants"
+import { EA_LOGIN_URL, AUTH_SOURCE, REDIRECT_URL, CLIENT_ID, CLIENT_SECRET, AccountToken, TokenInfo, Entitlements, VALID_ENTITLEMENTS, Persona, MACHINE_KEY, Personas, ENTITLEMENT_TO_VALID_NAMESPACE, NAMESPACES, ENTITLEMENT_TO_SYSTEM, SystemConsole, exportOptions, seasonType, ALL_CONSOLES, ConsoleOverride, CONSOLE_OVERRIDE_TO_ENTITLEMENT_BY_YEAR, CONSOLE_OVERRIDE_TO_VALID_NAMESPACE, ENTITLEMENT_TO_ENTITLEMENT_YEAR, GAME_YEARS_FOR_ENTITLEMENT_YEAR, GAME_CONFIG, GameYear } from "./ea_constants"
 import { BlazeError, ExportContext, ExportDestination, unlinkLeague, ephemeralClientFromToken, exporterForLeague, storeToken, storedTokenClient, EAAccountError, getTask, getPositionInQueue } from "./ea_client"
 import { removeLeague, setLeague } from "../connections/routes"
 import { discordLeagueView } from "../db/view"
@@ -25,8 +25,8 @@ const DISCORD_REDIRECT_URL = `${DEPLOYMENT_URL}/dashboard/guilds`
 
 type RetrievePersonasRequest = { code: string, discord?: string }
 type LinkPersona = { selected_persona: string, access_token: string, discord?: string, console_override: ConsoleOverride }
-type RequestPersona = Persona & { maddenEntitlement: string }
-type ConnectLeague = { access_token: string, refresh_token: string, expiry: string, console: SystemConsole, selected_league: string, blaze_id: string, discord?: string }
+type RequestPersona = Persona & { maddenEntitlement: string, gameYear: GameYear }
+type ConnectLeague = { access_token: string, refresh_token: string, expiry: string, console: SystemConsole, selected_league: string, blaze_id: string, discord?: string, game_year: GameYear }
 type ConnnectDiscord = { guildId: string, leagueId: number }
 
 async function renderErrorsMiddleware(ctx: ParameterizedContext, next: Next) {
@@ -164,15 +164,23 @@ router.get("/", async (ctx) => {
   if (finalPersonas.length === 0) {
     throw new EAAccountError("There are no Madden accounts associated with this EA account!", `This may happen because the EA account used to login is not the right one or is not connected to Madden. One potential fix is to try connecting this EA account to your Madden one, or checking if it is the right one. You can do this at this at this link <a href="https://myaccount.ea.com/cp-ui/connectaccounts/index" target="_blank">https://myaccount.ea.com/cp-ui/connectaccounts/index</a>`)
   }
-  ctx.body = personaRender({ personas: finalPersonas, namespaces: NAMESPACES, access_token, discord: discord, all_consoles: ALL_CONSOLES })
+  
+  const personaOptions: RequestPersona[] = finalPersonas.flatMap(p => {
+    const entitlementYear = ENTITLEMENT_TO_ENTITLEMENT_YEAR[p.maddenEntitlement]
+    return GAME_YEARS_FOR_ENTITLEMENT_YEAR[entitlementYear].map(gameYear => ({ ...p, gameYear }))
+  })
+  ctx.body = personaRender({ personas: personaOptions, namespaces: NAMESPACES, access_token, discord: discord, all_consoles: ALL_CONSOLES, gameConfig: GAME_CONFIG })
 }).post("/selectLeague", renderErrorsMiddleware, async (ctx, next) => {
   const { selected_persona, access_token, discord, console_override } = ctx.request.body as LinkPersona
   const persona = JSON.parse(selected_persona) as RequestPersona
+  const { gameYear } = persona
+  const entitlementYear = GAME_CONFIG[gameYear].entitlementYear
   if (console_override !== ConsoleOverride.NONE) {
-    persona.maddenEntitlement = CONSOLE_OVERRIDE_TO_ENTITLEMENT[console_override]
+    persona.maddenEntitlement = CONSOLE_OVERRIDE_TO_ENTITLEMENT_BY_YEAR[entitlementYear][console_override]
     persona.namespaceName = CONSOLE_OVERRIDE_TO_VALID_NAMESPACE[console_override]
   }
-  const locationUrlResponse = await fetch(`https://accounts.ea.com/connect/auth?hide_create=true&release_type=prod&response_type=code&redirect_uri=${REDIRECT_URL}&client_id=${CLIENT_ID}&machineProfileKey=${MACHINE_KEY}&authentication_source=${AUTH_SOURCE}&access_token=${access_token}&persona_id=${persona.personaId}&persona_namespace=${persona.namespaceName}`, {
+  const { clientId, clientSecret } = GAME_CONFIG[gameYear]
+  const locationUrlResponse = await fetch(`https://accounts.ea.com/connect/auth?hide_create=true&release_type=prod&response_type=code&redirect_uri=${REDIRECT_URL}&client_id=${clientId}&machineProfileKey=${MACHINE_KEY}&authentication_source=${AUTH_SOURCE}&access_token=${access_token}&persona_id=${persona.personaId}&persona_namespace=${persona.namespaceName}`, {
     redirect: "manual", // this fetch resolves to localhost address with a code as a query string. if we follow the redirect, it won't be able to connect. Just take the location from the manual redirect
     headers: {
       "Upgrade-Insecure-Requests": "1",
@@ -208,7 +216,7 @@ router.get("/", async (ctx) => {
       "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
       "Accept-Encoding": "gzip",
     },
-    body: `authentication_source=${AUTH_SOURCE}&code=${eaCode}&grant_type=authorization_code&token_format=JWS&release_type=prod&client_secret=${CLIENT_SECRET}&redirect_uri=${REDIRECT_URL}&client_id=${CLIENT_ID}`,
+    body: `authentication_source=${AUTH_SOURCE}&code=${eaCode}&grant_type=authorization_code&token_format=JWS&release_type=prod&client_secret=${clientSecret}&redirect_uri=${REDIRECT_URL}&client_id=${clientId}`,
   })
   if (!newAccessTokenResponse.ok) {
     const errorResponse = await newAccessTokenResponse.text()
@@ -217,12 +225,12 @@ router.get("/", async (ctx) => {
   const token = (await newAccessTokenResponse.json()) as AccountToken
   const systemConsole = ENTITLEMENT_TO_SYSTEM[persona.maddenEntitlement]
   const expiry = new Date(new Date().getTime() + token.expires_in * 1000)
-  const eaClient = await ephemeralClientFromToken({ accessToken: token.access_token, refreshToken: token.refresh_token, expiry: expiry, console: systemConsole, blazeId: `${persona.personaId}` })
+  const eaClient = await ephemeralClientFromToken({ accessToken: token.access_token, refreshToken: token.refresh_token, expiry: expiry, console: systemConsole, blazeId: `${persona.personaId}`, gameYear: gameYear })
   const leagues = await eaClient.getLeagues()
-  ctx.body = selectLeagueRender({ discord: discord, access_token: token.access_token, refresh_token: token.refresh_token, systemConsole: systemConsole, expiry: expiry, blazeId: persona.personaId, leagues: leagues.map(l => ({ leagueId: l.leagueId, leagueName: l.leagueName, userTeamName: l.userTeamName })) })
+  ctx.body = selectLeagueRender({ discord: discord, access_token: token.access_token, refresh_token: token.refresh_token, systemConsole: systemConsole, expiry: expiry, blazeId: persona.personaId, gameYear: gameYear, leagues: leagues.map(l => ({ leagueId: l.leagueId, leagueName: l.leagueName, userTeamName: l.userTeamName })) })
 }).post("/connect", renderErrorsMiddleware, async (ctx, next) => {
   const connectRequest = ctx.request.body as ConnectLeague
-  const token = { accessToken: connectRequest.access_token, refreshToken: connectRequest.refresh_token, console: connectRequest.console, expiry: new Date(Number(connectRequest.expiry)), blazeId: `${connectRequest.blaze_id}` }
+  const token = { accessToken: connectRequest.access_token, refreshToken: connectRequest.refresh_token, console: connectRequest.console, expiry: new Date(Number(connectRequest.expiry)), blazeId: `${connectRequest.blaze_id}`, gameYear: connectRequest.game_year }
   const leagueId = Number(connectRequest.selected_league)
   if (isNaN(leagueId)) {
     throw new EAAccountError(`Invalid league id ${leagueId}. Select a valid madden league`, `You may not have any madden leagues, which may mean you are signed into the wrong EA account. One potential fix is to try connecting this EA account to your Madden one, or checking if it is the right one. You can do this at this at this link <a href="https://myaccount.ea.com/cp-ui/connectaccounts/index" target="_blank">https://myaccount.ea.com/cp-ui/connectaccounts/index</a>`)
