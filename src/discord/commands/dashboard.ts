@@ -77,7 +77,7 @@ async function getDashboardInfo(client: DiscordClient, token: string, guild_id: 
 }
 
 export function createDashboard(guild_id: string) {
-  return `Snallabot Dashboard: ${DEPLOYMENT_URL}/dashboard?discord_connection=${guild_id}`
+  return `CFMStats-bot Dashboard: ${DEPLOYMENT_URL}/dashboard?discord_connection=${guild_id}`
 }
 
 export default {
@@ -88,7 +88,7 @@ export default {
   commandDefinition(): RESTPostAPIApplicationCommandsJSONBody {
     return {
       name: "dashboard",
-      description: "snallabot dashboard link",
+      description: "CFMStats-bot dashboard link",
       type: ApplicationCommandType.ChatInput,
     }
   }

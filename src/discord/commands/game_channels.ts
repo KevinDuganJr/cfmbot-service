@@ -375,7 +375,7 @@ export default {
   commandDefinition(): RESTPostAPIApplicationCommandsJSONBody {
     return {
       name: "game_channels",
-      description: "handles Snallabot game channels",
+      description: "handles CFMStats-bot game channels",
       type: ApplicationCommandType.ChatInput,
       options: [
         {

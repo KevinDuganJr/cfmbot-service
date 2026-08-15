@@ -467,12 +467,12 @@ export async function getTokenForLeague(blazeId: string): Promise<StoredTokenInf
 export async function storedTokenClient(leagueId: number): Promise<StoredEAClient> {
   const doc = await db.collection("madden_data27").doc(`${leagueId}`).get()
   if (!doc.exists) {
-    throw new Error(`League ${leagueId} not connected to snallabot`)
+    throw new Error(`League ${leagueId} not connected to CFMStats-bot`)
   }
   const leagueConnection = doc.data() as StoredMaddenConnection
   if (leagueConnection.blazeId) {
   } else {
-    throw new Error(`League ${leagueId} not connected to snallabot dashboard. Try setting up the dashboard again`)
+    throw new Error(`League ${leagueId} not connected to CFMStats-bot dashboard. Try setting up the dashboard again`)
   }
   let token: StoredTokenInformation
   try {

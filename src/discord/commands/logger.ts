@@ -37,7 +37,7 @@ export default {
   commandDefinition(): RESTPostAPIApplicationCommandsJSONBody {
     return {
       name: "logger",
-      description: "sets up snallabot logger",
+      description: "sets up CFMStats-bot logger",
       type: ApplicationCommandType.ChatInput,
       options: [
         {

@@ -103,7 +103,7 @@ async function retirePlayers(leagueId: string, token: string, client: DiscordCli
 - ${SnallabotCommandReactions.FINISHED} Updating Current players
 - ${SnallabotCommandReactions.FINISHED} Finding Retired Players
 - ${SnallabotCommandReactions.FINISHED} Finding New Retired Players\n
-Snallabot found ${retiredPlayers.length} newly retired players. :saluting_face: hope they had a great career! use /player list to view them`
+CFMStats-bot found ${retiredPlayers.length} newly retired players. :saluting_face: hope they had a great career! use /player list to view them`
           }
         ]
       })
@@ -119,7 +119,7 @@ Snallabot found ${retiredPlayers.length} newly retired players. :saluting_face: 
 - ${SnallabotCommandReactions.FINISHED} Updating Current players
 - ${SnallabotCommandReactions.FINISHED} Finding Retired Players
 - ${SnallabotCommandReactions.FINISHED} Finding New Retired Players\n
-Snallabot did not find anymore retired players...`
+CFMStats-bot did not find anymore retired players...`
           }
         ]
       })

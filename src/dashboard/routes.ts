@@ -34,7 +34,7 @@ async function renderErrorsMiddleware(ctx: ParameterizedContext, next: Next) {
     await next()
   } catch (e) {
     if (e instanceof EAAccountError) {
-      const error = `Error receieved from EA <br> Snallabot Guidance: ${e.troubleshoot} <br> Message: ${e.error}`
+      const error = `Error receieved from EA <br> CFMStats-bot Guidance: ${e.troubleshoot} <br> Message: ${e.error}`
       ctx.body = errorRender({ error: error, canUnlink: false })
     } else if (e instanceof BlazeError) {
       ctx.body = errorRender({ error: `Error from EA: ${JSON.stringify(e.error)}` })
@@ -52,7 +52,7 @@ async function renderConnectedLeagueErrorsMiddleware(ctx: ParameterizedContext, 
     await next()
   } catch (e) {
     if (e instanceof EAAccountError) {
-      const error = `Error receieved from EA <br> Message: ${e.message} <br> Snallabot Guidance: ${e.troubleshoot}`
+      const error = `Error receieved from EA <br> Message: ${e.message} <br> CFMStats-bot Guidance: ${e.troubleshoot}`
       ctx.body = errorRender({ error: error, canUnlink: true })
     } else if (e instanceof BlazeError) {
       ctx.body = errorRender({ error: `Error from EA: ${JSON.stringify(e.error)}`, canUnlink: true })

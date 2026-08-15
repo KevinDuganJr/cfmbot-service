@@ -43,7 +43,7 @@ export async function fetchTeamsMessage(settings: LeagueSettings): Promise<strin
     const teams = await MaddenDB.getLatestTeams(settings.commands.madden_league.league_id)
     return createTeamsMessage(settings, teams)
   } else {
-    return "# Teams\nNo Madden League connected. Connect Snallabot to your league and reconfigure"
+    return "# Teams\nNo Madden League connected. Connect CFMStats-bot to your league and reconfigure"
   }
 }
 
@@ -51,7 +51,7 @@ function createTeamsMessage(settings: LeagueSettings, teams: TeamList): string {
   if (settings?.commands?.madden_league?.league_id) {
     return formatTeamMessage(teams.getLatestTeams(), teams.getLatestTeamAssignments(settings.commands.teams?.assignments || {}))
   } else {
-    return "# Teams\nNo Madden League connected. Connect Snallabot to your league and reconfigure"
+    return "# Teams\nNo Madden League connected. Connect CFMStats-bot to your league and reconfigure"
   }
 }
 

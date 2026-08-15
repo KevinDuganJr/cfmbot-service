@@ -107,12 +107,12 @@ export function createClient(settings: DiscordSettings): DiscordClient {
       })
       if (!res.ok) {
         const stringData = await res.text()
-        let data: DiscordError = { message: "Snallabot Error, could not send to discord", code: 1 }
+        let data: DiscordError = { message: "CFMStats-bot Error, could not send to discord", code: 1 }
         try {
           data = JSON.parse(stringData) as DiscordError
         } catch (e) {
           console.error(stringData)
-          throw new Error(`Discord not responding snallabot. This is a fatal error. Please wait patiently`)
+          throw new Error(`Discord not responding CFMStats-bot. This is a fatal error. Please wait patiently`)
         }
         if (data.retry_after) {
           const retryTime = data.retry_after
@@ -147,12 +147,12 @@ export function createClient(settings: DiscordSettings): DiscordClient {
       })
       if (!res.ok) {
         const stringData = await res.text()
-        let data: DiscordError = { message: "Snallabot Error, could not send to discord", code: 1 }
+        let data: DiscordError = { message: "CFMStats-bot Error, could not send to discord", code: 1 }
         try {
           data = JSON.parse(stringData) as DiscordError
         } catch (e) {
           console.error(stringData)
-          throw new Error(`Discord not responding snallabot. This is a fatal error. Please wait patiently`)
+          throw new Error(`Discord not responding CFMStats-bot. This is a fatal error. Please wait patiently`)
         }
         if (data.retry_after) {
           const retryTime = data.retry_after
@@ -242,12 +242,12 @@ export function createClient(settings: DiscordSettings): DiscordClient {
       catch (e) {
         if (e instanceof DiscordRequestError) {
           if (e.isPermissionError()) {
-            throw new SnallabotDiscordError(e, `Snallabot does not have permission to create a message in <#${channel.id}>`)
+            throw new SnallabotDiscordError(e, `CFMStats-bot does not have permission to create a message in <#${channel.id}>`)
           }
           else if (e.code === UNKNOWN_MESSAGE) {
-            throw new SnallabotDiscordError(e, `Snallabot cannot create message, it may have been deleted? Try to re-configure the featuer you just used`)
+            throw new SnallabotDiscordError(e, `CFMStats-bot cannot create message, it may have been deleted? Try to re-configure the featuer you just used`)
           } else if (e.code === UNKNOWN_CHANNEL) {
-            throw new SnallabotDiscordError(e, `Snallabot cannot create message in channel because the channel (<#${channel.id}>) may have been deleted? Try to re-configure the feature you just used.`)
+            throw new SnallabotDiscordError(e, `CFMStats-bot cannot create message in channel because the channel (<#${channel.id}>) may have been deleted? Try to re-configure the feature you just used.`)
           }
         }
         throw e
@@ -267,11 +267,11 @@ export function createClient(settings: DiscordSettings): DiscordClient {
       } catch (e) {
         if (e instanceof DiscordRequestError) {
           if (e.isPermissionError()) {
-            throw new SnallabotDiscordError(e, `Snallabot does not have permissions to edit message in channel <#${channel.id}>.`)
+            throw new SnallabotDiscordError(e, `CFMStats-bot does not have permissions to edit message in channel <#${channel.id}>.`)
           } else if (e.code === UNKNOWN_MESSAGE) {
-            throw new SnallabotDiscordError(e, `Snallabot cannot edit message, it may have been deleted?`)
+            throw new SnallabotDiscordError(e, `CFMStats-bot cannot edit message, it may have been deleted?`)
           } else if (e.code === UNKNOWN_CHANNEL) {
-            throw new SnallabotDiscordError(e, `Snallabot cannot edit message in channel because the channel (<#${channel.id}>) may have been deleted?`)
+            throw new SnallabotDiscordError(e, `CFMStats-bot cannot edit message in channel because the channel (<#${channel.id}>) may have been deleted?`)
           }
         }
         throw e
@@ -285,11 +285,11 @@ export function createClient(settings: DiscordSettings): DiscordClient {
       } catch (e) {
         if (e instanceof DiscordRequestError) {
           if (e.isPermissionError()) {
-            throw new SnallabotDiscordError(e, `Snallabot does not have permissions to delete message in channel <#${channel.id}>.`)
+            throw new SnallabotDiscordError(e, `CFMStats-bot does not have permissions to delete message in channel <#${channel.id}>.`)
           } else if (e.code === UNKNOWN_MESSAGE) {
-            throw new SnallabotDiscordError(e, `Snallabot cannot delete message, it may have been deleted?`)
+            throw new SnallabotDiscordError(e, `CFMStats-bot cannot delete message, it may have been deleted?`)
           } else if (e.code === UNKNOWN_CHANNEL) {
-            throw new SnallabotDiscordError(e, `Snallabot cannot delete message in channel because the channel (<#${channel.id}>) may have been deleted?`)
+            throw new SnallabotDiscordError(e, `CFMStats-bot cannot delete message in channel because the channel (<#${channel.id}>) may have been deleted?`)
           }
         }
         throw e
@@ -351,11 +351,11 @@ export function createClient(settings: DiscordSettings): DiscordClient {
       } catch (e) {
         if (e instanceof DiscordRequestError) {
           if (e.isPermissionError()) {
-            throw new SnallabotDiscordError(e, `Snallabot does not have permissions to create channel under category <#${category.id}>.`)
+            throw new SnallabotDiscordError(e, `CFMStats-bot does not have permissions to create channel under category <#${category.id}>.`)
           } else if (e.code === UNKNOWN_CHANNEL) {
-            throw new SnallabotDiscordError(e, `Snallabot could not create channel under category (<#${category.id}>) may have been deleted?`)
+            throw new SnallabotDiscordError(e, `CFMStats-bot could not create channel under category (<#${category.id}>) may have been deleted?`)
           } else if (e.code === 50035 && e.originalError?.errors?.parent_id?._errors?.[0]?.code === "CHANNEL_PARENT_INVALID") {
-            throw new SnallabotDiscordError(e, `Snallabot could not create channel under category (<#${category.id}>) may have been deleted?`)
+            throw new SnallabotDiscordError(e, `CFMStats-bot could not create channel under category (<#${category.id}>) may have been deleted?`)
           }
         }
         throw e
@@ -367,9 +367,9 @@ export function createClient(settings: DiscordSettings): DiscordClient {
       } catch (e) {
         if (e instanceof DiscordRequestError) {
           if (e.isPermissionError()) {
-            throw new SnallabotDiscordError(e, `Snallabot does not have permissions to delete channel <#${channel.id}>.`)
+            throw new SnallabotDiscordError(e, `CFMStats-bot does not have permissions to delete channel <#${channel.id}>.`)
           } else if (e.code === UNKNOWN_CHANNEL) {
-            throw new SnallabotDiscordError(e, `Snallabot could not delete channel <#${channel.id}> may have been deleted?`)
+            throw new SnallabotDiscordError(e, `CFMStats-bot could not delete channel <#${channel.id}> may have been deleted?`)
           }
         }
         throw e
@@ -381,9 +381,9 @@ export function createClient(settings: DiscordSettings): DiscordClient {
       } catch (e) {
         if (e instanceof DiscordRequestError) {
           if (e.isPermissionError()) {
-            throw new SnallabotDiscordError(e, `Snallabot does not have permissions to react to message in  channel <#${channel.id}>.`)
+            throw new SnallabotDiscordError(e, `CFMStats-bot does not have permissions to react to message in  channel <#${channel.id}>.`)
           } else if (e.code === UNKNOWN_CHANNEL || e.code === UNKNOWN_MESSAGE) {
-            throw new SnallabotDiscordError(e, `Snallabot could not react to message in channel <#${channel.id}>. the channel or the message may have been deleted?`)
+            throw new SnallabotDiscordError(e, `CFMStats-bot could not react to message in channel <#${channel.id}>. the channel or the message may have been deleted?`)
           }
         }
         throw e
@@ -400,9 +400,9 @@ export function createClient(settings: DiscordSettings): DiscordClient {
       } catch (e) {
         if (e instanceof DiscordRequestError) {
           if (e.isPermissionError()) {
-            throw new SnallabotDiscordError(e, `Snallabot does not have permissions to see users reacted to message in  channel <#${channel.id}>.`)
+            throw new SnallabotDiscordError(e, `CFMStats-bot does not have permissions to see users reacted to message in  channel <#${channel.id}>.`)
           } else if (e.code === UNKNOWN_CHANNEL || e.code === UNKNOWN_MESSAGE) {
-            throw new SnallabotDiscordError(e, `Snallabot could not have permissions to see users reacted to message in <#${channel.id}>. the channel or the message may have been deleted?`)
+            throw new SnallabotDiscordError(e, `CFMStats-bot could not have permissions to see users reacted to message in <#${channel.id}>. the channel or the message may have been deleted?`)
           }
         }
         throw e
@@ -416,9 +416,9 @@ export function createClient(settings: DiscordSettings): DiscordClient {
       } catch (e) {
         if (e instanceof DiscordRequestError) {
           if (e.isPermissionError()) {
-            throw new SnallabotDiscordError(e, `Snallabot does not have permissions to get messages from  <#${channelId.id}>.`)
+            throw new SnallabotDiscordError(e, `CFMStats-bot does not have permissions to get messages from  <#${channelId.id}>.`)
           } else if (e.code === UNKNOWN_CHANNEL || e.code === UNKNOWN_MESSAGE) {
-            throw new SnallabotDiscordError(e, `Snallabot could not get messages from  <#${channelId.id}>. the channel may have been deleted?`)
+            throw new SnallabotDiscordError(e, `CFMStats-bot could not get messages from  <#${channelId.id}>. the channel may have been deleted?`)
           }
         }
         throw e
@@ -440,9 +440,9 @@ export function createClient(settings: DiscordSettings): DiscordClient {
       } catch (e) {
         if (e instanceof DiscordRequestError) {
           if (e.isPermissionError()) {
-            throw new SnallabotDiscordError(e, `Snallabot does not have permissions to create thread in  <#${channel.id}>.`)
+            throw new SnallabotDiscordError(e, `CFMStats-bot does not have permissions to create thread in  <#${channel.id}>.`)
           } else if (e.code === UNKNOWN_CHANNEL || e.code === UNKNOWN_MESSAGE) {
-            throw new SnallabotDiscordError(e, `Snallabot could not create a thread in  <#${channel.id}>. the channel may have been deleted?`)
+            throw new SnallabotDiscordError(e, `CFMStats-bot could not create a thread in  <#${channel.id}>. the channel may have been deleted?`)
           }
         }
         throw e
@@ -460,7 +460,7 @@ export function createClient(settings: DiscordSettings): DiscordClient {
       } catch (e) {
         if (e instanceof DiscordRequestError) {
           if (e.isPermissionError()) {
-            throw new SnallabotDiscordError(e, `Snallabot does not have permissions to create thread in  <#${channel.id}>.`)
+            throw new SnallabotDiscordError(e, `CFMStats-bot does not have permissions to create thread in  <#${channel.id}>.`)
           } else if (e.code === UNKNOWN_CHANNEL || e.code === UNKNOWN_MESSAGE) {
             return false
           }
@@ -494,7 +494,7 @@ export function createClient(settings: DiscordSettings): DiscordClient {
       } catch (e) {
         if (e instanceof DiscordRequestError) {
           if (e.isPermissionError()) {
-            throw new SnallabotDiscordError(e, `Snallabot does not have permissions to get users so I can check their roles.`)
+            throw new SnallabotDiscordError(e, `CFMStats-bot does not have permissions to get users so I can check their roles.`)
           }
         }
         throw e

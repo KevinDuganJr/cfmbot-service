@@ -172,7 +172,7 @@ export default {
         {
           type: ApplicationCommandOptionType.Subcommand,
           name: "configure",
-          description: "configures snallabot broadcaster",
+          description: "configures CFMStats-bot broadcaster",
           options: [
             {
               type: ApplicationCommandOptionType.String,

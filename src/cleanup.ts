@@ -50,7 +50,7 @@ async function calculateLeagueStats() {
     const [conf, stat] = e
     return `Total ${conf} leagues: ${stat}`
   }).join("\n")
-  const message = `# Snallabot Daily League Settings Stats\nTotal Leagues: ${stats.totalLeagues}\nExpired Leagues: ${settingsToDelete.length}\n${individualConfigurationStats}`
+  const message = `# CFMStats-bot Daily League Settings Stats\nTotal Leagues: ${stats.totalLeagues}\nExpired Leagues: ${settingsToDelete.length}\n${individualConfigurationStats}`
   await prodClient.createMessage(STATS_CHANNEL, message, [])
 }
 
@@ -69,7 +69,7 @@ async function cleanupDashboards() {
     await deleteToken(tokenToDelete.token.blazeId)
   }
 
-  const message = `# Snallabot Daily Dashboard Stats\nTotal Tokens: ${tokens.length}\nExpired: ${tokensToDelete.length}`
+  const message = `# CFMStats-bot Daily Dashboard Stats\nTotal Tokens: ${tokens.length}\nExpired: ${tokensToDelete.length}`
   await prodClient.createMessage(STATS_CHANNEL, message, [])
 }
 
