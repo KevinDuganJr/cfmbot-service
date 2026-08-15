@@ -2,13 +2,12 @@ export const AUTH_SOURCE = 317239
 export const REDIRECT_URL = "http://127.0.0.1/success"
 export const MACHINE_KEY = "444d362e8e067fe2"
 
-export type GameYear = "25" | "26" | "27"
-export const GAME_YEARS: GameYear[] = ["25", "26", "27"]
-export type EntitlementYear = "25" | "26"
-export const ENTITLEMENT_YEARS: EntitlementYear[] = ["25", "26"]
+export type GameYear = "26" | "27"
+export const GAME_YEARS: GameYear[] = ["26", "27"]
+export type EntitlementYear = "26"
+export const ENTITLEMENT_YEARS: EntitlementYear[] = ["26"]
 
 export const GAME_CONFIG: Record<GameYear, { entitlementYear: EntitlementYear, clientId: string, clientSecret: string, blazeYear: string, componentName: string, label: string }> = {
-  "25": { entitlementYear: "25", clientId: "MCA_25_COMP_APP", clientSecret: "wfGAWnrxLroZOwwELYA2ZrAuaycuF2WDb00zOLv48Sb79viJDGlyD6OyK8pM5eIiv_20240731135155", blazeYear: "2026", componentName: "careermode", label: "Madden 25" },
   "26": { entitlementYear: "26", clientId: "MCA_26_COMP_APP", clientSecret: "teJpJ9cSXFqZAuKNW8IuHpy8D4dwWPoVrPoek38iCnrGbrUSfjqnHMBAv8iCVjeSm_20250910175618", blazeYear: "2026", componentName: "careermode", label: "Madden 26" },
   // placeholder: rides on the M26 entitlement/app until MCA_27 releases (Sept 1st), but talks to the M27 blaze servers
   "27": { entitlementYear: "26", clientId: "MCA_26_COMP_APP", clientSecret: "teJpJ9cSXFqZAuKNW8IuHpy8D4dwWPoVrPoek38iCnrGbrUSfjqnHMBAv8iCVjeSm_20250910175618", blazeYear: "2027", componentName: "franchisemode", label: "Madden 27 (early access)" },
@@ -43,7 +42,6 @@ const entitlementsForYear = (a: string) => ({
 })
 
 export const VALID_ENTITLEMENTS_BY_YEAR: Record<EntitlementYear, Record<string, string>> = {
-  "25": entitlementsForYear("25"),
   "26": entitlementsForYear("26"),
 }
 
@@ -110,7 +108,6 @@ const consoleOverrideToEntitlementForYear = (a: string) => ({
 })
 // console override entitlement depends on the persona's EA entitlement generation, not the chosen GameYear
 export const CONSOLE_OVERRIDE_TO_ENTITLEMENT_BY_YEAR: Record<EntitlementYear, { [key: string]: string }> = {
-  "25": consoleOverrideToEntitlementForYear("25"),
   "26": consoleOverrideToEntitlementForYear("26"),
 }
 
@@ -148,7 +145,6 @@ const blazeServiceForYear = (a: string) => ({
   stadia: `madden-${a}-stadia`,
 })
 export const BLAZE_SERVICE_BY_YEAR: Record<GameYear, { [key in SystemConsole]: string }> = {
-  "25": blazeServiceForYear(GAME_CONFIG["25"].blazeYear),
   "26": blazeServiceForYear(GAME_CONFIG["26"].blazeYear),
   "27": blazeServiceForYear(GAME_CONFIG["27"].blazeYear),
 }
@@ -172,7 +168,6 @@ const blazeProductNameForYear = (a: string) => ({
   stadia: `madden-${a}-stadia-mca`,
 })
 export const BLAZE_PRODUCT_NAME_BY_YEAR: Record<GameYear, { [key in SystemConsole]: string }> = {
-  "25": blazeProductNameForYear(GAME_CONFIG["25"].blazeYear),
   "26": blazeProductNameForYear(GAME_CONFIG["26"].blazeYear),
   "27": blazeProductNameForYear(GAME_CONFIG["27"].blazeYear),
 }
