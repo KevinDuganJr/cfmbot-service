@@ -18,20 +18,27 @@ html
               p.mb-0
                 | Follow these steps:
               ol.mt-2
+                li Choose which Madden you want to connect below.
                 li
                   | Click the "Login to EA" button.
                   small.text-muted.ms-2(role="note") (NOTE: This opens the EA login page in a new tab.)
-                li After signing in you may see a blank or error page and your browser URL will be at: 
+                li After signing in you may see a blank or error page and your browser URL will be at:
                   code.ms-2 http://127.0.0.1
                 li Copy the entire URL from your browser (the address bar) and paste it into the box below, then submit.
-              hr              
-              a.btn.btn-primary.me-2(href=url target="_blank" rel="noopener") Login to EA
+              hr
+              .mb-3
+                label.form-label(for="gameYearSelect") Madden Version
+                select#gameYearSelect.form-select
+                  each gy in gameYears
+                    option(value=gy data-url=loginUrls[gy])= gameConfig[gy].label
+              a#loginLink.btn.btn-primary.me-2(href=loginUrls[gameYears[0]] target="_blank" rel="noopener") Login to EA
               form.d-inline(action="/dashboard/retrievePersonas" method="POST")
                 .mb-3.mt-3
                   label.form-label(for="code") Paste the URL shown in your browser (must start with "http://127.0.0.1")
                   .input-group
                     input#code.form-control(type="text" name="code" placeholder="e.g. http://127.0.0.1:PORT/..." aria-label="Redirect URL" value="")
                     button.btn.btn-secondary(type="button" id="pasteBtn") Paste
+                  input#game_year(type="hidden" name="game_year" value=gameYears[0])
                   if discord
                     input#discord(type="hidden" name="discord" value=discord readonly=true)
                   .form-text.text-muted.mt-1
@@ -40,12 +47,21 @@ html
                   button#submit.btn.btn-success(type="submit" disabled=true) Continue to Next Step
                 br
                 .small.text-muted.border-top.pt-2.text-center.fst-italic(role="note")
-                  | Legally this falls under interoperability. This tool only automates a standard login flow.            
+                  | Legally this falls under interoperability. This tool only automates a standard login flow.
     script.
       (function () {
         const inputElement = document.getElementById('code')
         const btn = document.getElementById('submit')
         const pasteBtn = document.getElementById('pasteBtn')
+        const gameYearSelect = document.getElementById('gameYearSelect')
+        const loginLink = document.getElementById('loginLink')
+        const gameYearField = document.getElementById('game_year')
+
+        gameYearSelect.addEventListener('change', function () {
+          const selected = gameYearSelect.options[gameYearSelect.selectedIndex]
+          loginLink.href = selected.getAttribute('data-url')
+          gameYearField.value = selected.value
+        })
 
         function looksLikeLocalRedirect(val) {
           if (!val) return false

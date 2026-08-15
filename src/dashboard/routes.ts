@@ -2,7 +2,7 @@ import Router from "@koa/router"
 import Pug from "pug"
 import path from "path"
 import { Next, ParameterizedContext } from "koa"
-import { EA_LOGIN_URL, AUTH_SOURCE, REDIRECT_URL, CLIENT_ID, CLIENT_SECRET, AccountToken, TokenInfo, Entitlements, VALID_ENTITLEMENTS, Persona, MACHINE_KEY, Personas, ENTITLEMENT_TO_VALID_NAMESPACE, NAMESPACES, ENTITLEMENT_TO_SYSTEM, SystemConsole, exportOptions, seasonType, ALL_CONSOLES, ConsoleOverride, CONSOLE_OVERRIDE_TO_ENTITLEMENT_BY_YEAR, CONSOLE_OVERRIDE_TO_VALID_NAMESPACE, ENTITLEMENT_TO_ENTITLEMENT_YEAR, GAME_YEARS_FOR_ENTITLEMENT_YEAR, GAME_CONFIG, GameYear } from "./ea_constants"
+import { EA_LOGIN_URL_BY_YEAR, AUTH_SOURCE, REDIRECT_URL, AccountToken, TokenInfo, Entitlements, Persona, MACHINE_KEY, Personas, ENTITLEMENT_TO_VALID_NAMESPACE, NAMESPACES, ENTITLEMENT_TO_SYSTEM, SystemConsole, exportOptions, seasonType, ALL_CONSOLES, ConsoleOverride, CONSOLE_OVERRIDE_TO_ENTITLEMENT_BY_YEAR, CONSOLE_OVERRIDE_TO_VALID_NAMESPACE, GAME_CONFIG, GAME_YEARS, GameYear, VALID_ENTITLEMENTS_BY_YEAR } from "./ea_constants"
 import { BlazeError, ExportContext, ExportDestination, unlinkLeague, ephemeralClientFromToken, exporterForLeague, storeToken, storedTokenClient, EAAccountError, getTask, getPositionInQueue } from "./ea_client"
 import { removeLeague, setLeague } from "../connections/routes"
 import { discordLeagueView } from "../db/view"
@@ -23,7 +23,7 @@ const router = new Router({ prefix: "/dashboard" })
 const client = createProdClient()
 const DISCORD_REDIRECT_URL = `${DEPLOYMENT_URL}/dashboard/guilds`
 
-type RetrievePersonasRequest = { code: string, discord?: string }
+type RetrievePersonasRequest = { code: string, discord?: string, game_year: GameYear }
 type LinkPersona = { selected_persona: string, access_token: string, discord?: string, console_override: ConsoleOverride }
 type RequestPersona = Persona & { maddenEntitlement: string, gameYear: GameYear }
 type ConnectLeague = { access_token: string, refresh_token: string, expiry: string, console: SystemConsole, selected_league: string, blaze_id: string, discord?: string, game_year: GameYear }
@@ -73,9 +73,10 @@ router.get("/", async (ctx) => {
       ctx.redirect(`/dashboard/league/${view.leagueId}`)
     }
   }
-  ctx.body = startRender({ url: EA_LOGIN_URL, discord: discordConnection })
+  ctx.body = startRender({ loginUrls: EA_LOGIN_URL_BY_YEAR, gameConfig: GAME_CONFIG, gameYears: GAME_YEARS, discord: discordConnection })
 }).post("/retrievePersonas", renderErrorsMiddleware, async (ctx, next) => {
-  const { code: rawCode, discord } = ctx.request.body as RetrievePersonasRequest
+  const { code: rawCode, discord, game_year: gameYear } = ctx.request.body as RetrievePersonasRequest
+  const { clientId, clientSecret, entitlementYear } = GAME_CONFIG[gameYear]
   const searchParams = rawCode.substring(rawCode.indexOf("?"))
   const eaCodeParams = new URLSearchParams(searchParams)
   const code = eaCodeParams.get("code")
@@ -91,7 +92,7 @@ router.get("/", async (ctx) => {
       "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
       "Accept-Encoding": "gzip",
     },
-    body: `authentication_source=${AUTH_SOURCE}&client_secret=${CLIENT_SECRET}&grant_type=authorization_code&code=${code}&redirect_uri=${REDIRECT_URL}&release_type=prod&client_id=${CLIENT_ID}`
+    body: `authentication_source=${AUTH_SOURCE}&client_secret=${clientSecret}&grant_type=authorization_code&code=${code}&redirect_uri=${REDIRECT_URL}&release_type=prod&client_id=${clientId}`
   })
   if (!response.ok) {
     const errorResponse = await response.text()
@@ -135,7 +136,7 @@ router.get("/", async (ctx) => {
   }
   const pidRes: Entitlements = await pidUriResponse.json()
   const { entitlements: { entitlement: userEntitlements } } = pidRes
-  const validEntitlements = (userEntitlements || []).filter(e => e.entitlementTag === "ONLINE_ACCESS" && Object.values(VALID_ENTITLEMENTS).includes(e.groupName))
+  const validEntitlements = (userEntitlements || []).filter(e => e.entitlementTag === "ONLINE_ACCESS" && Object.values(VALID_ENTITLEMENTS_BY_YEAR[entitlementYear]).includes(e.groupName))
   if (validEntitlements.length === 0) {
     throw new EAAccountError("User cannot access this version of Madden!", `This may happen because the EA account used to login is not the right one or is not connected to Madden. One way to fix this is to try connecting this EA account to your Madden one, or checking if it is the right one. You can do this at this at this link <a href="https://myaccount.ea.com/cp-ui/connectaccounts/index" target="_blank">https://myaccount.ea.com/cp-ui/connectaccounts/index</a> <br> <br> Here is the response from EA: ${JSON.stringify(pidRes)}`)
   }
@@ -160,16 +161,13 @@ router.get("/", async (ctx) => {
     const { personas: { persona: userEaPersonas } } = (await personasResponse.json()) as Personas
     return userEaPersonas.map(p => ({ ...p, maddenEntitlement }))
   }))
-  const finalPersonas = retrievedPersonas.flat().filter(p => ENTITLEMENT_TO_VALID_NAMESPACE[p.maddenEntitlement] === p.namespaceName)
+  const finalPersonas: RequestPersona[] = retrievedPersonas.flat()
+    .filter(p => ENTITLEMENT_TO_VALID_NAMESPACE[p.maddenEntitlement] === p.namespaceName)
+    .map(p => ({ ...p, gameYear }))
   if (finalPersonas.length === 0) {
     throw new EAAccountError("There are no Madden accounts associated with this EA account!", `This may happen because the EA account used to login is not the right one or is not connected to Madden. One potential fix is to try connecting this EA account to your Madden one, or checking if it is the right one. You can do this at this at this link <a href="https://myaccount.ea.com/cp-ui/connectaccounts/index" target="_blank">https://myaccount.ea.com/cp-ui/connectaccounts/index</a>`)
   }
-  
-  const personaOptions: RequestPersona[] = finalPersonas.flatMap(p => {
-    const entitlementYear = ENTITLEMENT_TO_ENTITLEMENT_YEAR[p.maddenEntitlement]
-    return GAME_YEARS_FOR_ENTITLEMENT_YEAR[entitlementYear].map(gameYear => ({ ...p, gameYear }))
-  })
-  ctx.body = personaRender({ personas: personaOptions, namespaces: NAMESPACES, access_token, discord: discord, all_consoles: ALL_CONSOLES, gameConfig: GAME_CONFIG })
+  ctx.body = personaRender({ personas: finalPersonas, namespaces: NAMESPACES, access_token, discord: discord, all_consoles: ALL_CONSOLES, gameConfig: GAME_CONFIG })
 }).post("/selectLeague", renderErrorsMiddleware, async (ctx, next) => {
   const { selected_persona, access_token, discord, console_override } = ctx.request.body as LinkPersona
   const persona = JSON.parse(selected_persona) as RequestPersona
