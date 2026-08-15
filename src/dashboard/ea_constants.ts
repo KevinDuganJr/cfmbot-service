@@ -26,12 +26,6 @@ export const CLIENT_SECRET = GAME_CONFIG[TWO_DIGIT_YEAR].clientSecret
 export const YEAR = GAME_CONFIG[TWO_DIGIT_YEAR].blazeYear
 export const EA_LOGIN_URL = `https://accounts.ea.com/connect/auth?hide_create=true&release_type=prod&response_type=code&redirect_uri=${REDIRECT_URL}&client_id=${CLIENT_ID}&machineProfileKey=${MACHINE_KEY}&authentication_source=${AUTH_SOURCE}`
 
-// EA scopes which entitlements it returns to the client app that logged in, so the
-// Madden year has to be picked before login, not inferred afterward from entitlements.
-export const EA_LOGIN_URL_BY_YEAR: Record<GameYear, string> = Object.fromEntries(
-  GAME_YEARS.map(y => [y, `https://accounts.ea.com/connect/auth?hide_create=true&release_type=prod&response_type=code&redirect_uri=${REDIRECT_URL}&client_id=${GAME_CONFIG[y].clientId}&machineProfileKey=${MACHINE_KEY}&authentication_source=${AUTH_SOURCE}`])
-) as Record<GameYear, string>
-
 const entitlementsForYear = (a: string) => ({
   xone: `MADDEN_${a}XONE`,
   ps4: `MADDEN_${a}PS4`,
