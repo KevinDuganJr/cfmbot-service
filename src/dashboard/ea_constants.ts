@@ -10,7 +10,7 @@ export const ENTITLEMENT_YEARS: EntitlementYear[] = ["26"]
 export const GAME_CONFIG: Record<GameYear, { entitlementYear: EntitlementYear, clientId: string, clientSecret: string, blazeYear: string, componentName: string, label: string }> = {
   "26": { entitlementYear: "26", clientId: "MCA_26_COMP_APP", clientSecret: "teJpJ9cSXFqZAuKNW8IuHpy8D4dwWPoVrPoek38iCnrGbrUSfjqnHMBAv8iCVjeSm_20250910175618", blazeYear: "2026", componentName: "careermode", label: "Madden 26" },
   // placeholder: rides on the M26 entitlement/app until MCA_27 releases (Sept 1st), but talks to the M27 blaze servers
-  "27": { entitlementYear: "26", clientId: "MCA_26_COMP_APP", clientSecret: "teJpJ9cSXFqZAuKNW8IuHpy8D4dwWPoVrPoek38iCnrGbrUSfjqnHMBAv8iCVjeSm_20250910175618", blazeYear: "2027", componentName: "franchisemode", label: "Madden 27 (early access)" },
+  "27": { entitlementYear: "26", clientId: "MCA_26_COMP_APP", clientSecret: "teJpJ9cSXFqZAuKNW8IuHpy8D4dwWPoVrPoek38iCnrGbrUSfjqnHMBAv8iCVjeSm_20250910175618", blazeYear: "2027", componentName: "franchisemode", label: "Madden 27" },
 }
 
 // which GameYears are reachable from a given EA entitlement generation, e.g. "26" -> ["26","27"]
