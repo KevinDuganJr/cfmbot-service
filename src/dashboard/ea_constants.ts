@@ -16,8 +16,7 @@ function requireEnv(name: string): string {
 }
 
 export const GAME_CONFIG: Record<GameYear, { entitlementYear: EntitlementYear, clientId: string, clientSecret: string, blazeYear: string, componentName: string, label: string }> = {
-  "26": { entitlementYear: "26", clientId: "MCA_26_COMP_APP", clientSecret: requireEnv("MCA_26_COMP_APP"), blazeYear: "2026", componentName: "careermode", label: "Madden 26" },
-  // placeholder: rides on the M26 entitlement/app until MCA_27 releases (Sept 1st), but talks to the M27 blaze servers
+  "26": { entitlementYear: "26", clientId: "MCA_26_COMP_APP", clientSecret: requireEnv("MCA_26_COMP_APP"), blazeYear: "2026", componentName: "careermode", label: "Madden 26" },  
   "27": { entitlementYear: "26", clientId: "MCA_27_COMP_APP", clientSecret: requireEnv("MCA_27_COMP_APP"), blazeYear: "2027", componentName: "franchisemode", label: "Madden 27" },
 }
 
