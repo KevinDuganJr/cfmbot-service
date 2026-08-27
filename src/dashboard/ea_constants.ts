@@ -391,7 +391,7 @@ export const exportOptions = {
     stage: Stage.SEASON,
     week: 21,
   },
-  Superbowl: {
+  "Super Bowl": {
     stage: Stage.SEASON,
     week: 23,
   },
