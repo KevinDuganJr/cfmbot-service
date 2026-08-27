@@ -181,7 +181,9 @@ router.get("/", async (ctx) => {
     persona.maddenEntitlement = CONSOLE_OVERRIDE_TO_ENTITLEMENT_BY_YEAR[entitlementYear][console_override]
     persona.namespaceName = CONSOLE_OVERRIDE_TO_VALID_NAMESPACE[console_override]
   }
-  const { clientId, clientSecret } = GAME_CONFIG[gameYear]
+  // the persona/entitlement here always belongs to the entitlement generation, not the selected game year
+  // (M27 has no entitlement generation of its own yet), so the EA re-auth must use that app's credentials
+  const { clientId, clientSecret } = GAME_CONFIG[entitlementYear]
   const locationUrlResponse = await fetch(`https://accounts.ea.com/connect/auth?hide_create=true&release_type=prod&response_type=code&redirect_uri=${REDIRECT_URL}&client_id=${clientId}&machineProfileKey=${MACHINE_KEY}&authentication_source=${AUTH_SOURCE}&access_token=${access_token}&persona_id=${persona.personaId}&persona_namespace=${persona.namespaceName}`, {
     redirect: "manual", // this fetch resolves to localhost address with a code as a query string. if we follow the redirect, it won't be able to connect. Just take the location from the manual redirect
     headers: {
