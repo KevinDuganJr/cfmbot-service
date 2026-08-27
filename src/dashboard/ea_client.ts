@@ -101,7 +101,8 @@ const headers = (t: TokenInformation) => {
 
 async function refreshToken(token: TokenInformation): Promise<TokenInformation> {
   const now = new Date()
-  if (now > token.expiry) {
+  if (now > token.expiry) {    
+    const entitlementConfig = GAME_CONFIG[GAME_CONFIG[token.gameYear].entitlementYear]
     const res = await fetch(`https://accounts.ea.com/connect/token`, {
       method: "POST",
       headers: {
@@ -111,7 +112,7 @@ async function refreshToken(token: TokenInformation): Promise<TokenInformation> 
         "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
         "Accept-Encoding": "gzip",
       },
-      body: `grant_type=refresh_token&client_id=${GAME_CONFIG[token.gameYear].clientId}&client_secret=${GAME_CONFIG[token.gameYear].clientSecret}&release_type=prod&refresh_token=${token.refreshToken}&authentication_source=${AUTH_SOURCE}&token_format=JWS`,
+      body: `grant_type=refresh_token&client_id=${entitlementConfig.clientId}&client_secret=${entitlementConfig.clientSecret}&release_type=prod&refresh_token=${token.refreshToken}&authentication_source=${AUTH_SOURCE}&token_format=JWS`,
     });
     const newToken = await res.json() as AccountToken
     if (!res.ok || !newToken.access_token) {

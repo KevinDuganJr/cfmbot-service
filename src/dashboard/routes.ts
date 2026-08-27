@@ -10,7 +10,7 @@ import LeagueSettingsDB from "../discord/settings_db"
 import MaddenDB, { MaddenEvents, parseExportStatusWeekKey } from "../db/madden_db"
 import { MADDEN_SEASON, getMessageForWeek } from "../export/madden_league_types"
 import { createProdClient } from "../discord/discord_utils"
-import { DEPLOYMENT_URL } from "../config"
+import { DEPLOYMENT_URL, BUILD_VERSION } from "../config"
 
 const startRender = Pug.compileFile(path.join(__dirname, "/templates/start.pug"))
 const errorRender = Pug.compileFile(path.join(__dirname, "/templates/error.pug"))
@@ -73,7 +73,7 @@ router.get("/", async (ctx) => {
       ctx.redirect(`/dashboard/league/${view.leagueId}`)
     }
   }
-  ctx.body = startRender({ url: EA_LOGIN_URL, discord: discordConnection })
+  ctx.body = startRender({ url: EA_LOGIN_URL, discord: discordConnection, buildVersion: BUILD_VERSION })
 }).post("/retrievePersonas", renderErrorsMiddleware, async (ctx, next) => {
   const { code: rawCode, discord } = ctx.request.body as RetrievePersonasRequest
   const searchParams = rawCode.substring(rawCode.indexOf("?"))
