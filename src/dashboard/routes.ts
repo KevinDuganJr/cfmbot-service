@@ -342,6 +342,24 @@ router.get("/", async (ctx) => {
   ctx.body = {
     task: task, position: position
   }
+}).get("/league/:leagueId/status", async (ctx, next) => {
+  const { leagueId: rawLeagueId } = ctx.params
+  const leagueId = Number(rawLeagueId)
+  if (isNaN(leagueId)) {
+    throw Error(`Invalid League ${leagueId}`)
+  }
+  const eaClient = await storedTokenClient(leagueId)
+  const [leagueInfo, exportStatus] = await Promise.all([eaClient.getLeagueInfo(leagueId), MaddenDB.getExportStatus(rawLeagueId)])
+  const { careerHubInfo: { seasonInfo }, secsSinceLastAdvancedTime } = leagueInfo
+  const lastAdvance = new Date(Date.now() - (secsSinceLastAdvancedTime * 1000))
+  ctx.status = 200
+  ctx.body = {
+    seasonInfo: seasonInfo,
+    currentWeek: getMessageForWeek(seasonInfo.displayWeek),
+    seasonWeekType: seasonType(seasonInfo),
+    lastAdvance: lastAdvance,
+    exportStatus: exportStatus
+  }
 }).post("/league/:leagueId/unlink", async (ctx, next) => {
   const { leagueId: rawLeagueId } = ctx.params
   const leagueId = Number(rawLeagueId)
