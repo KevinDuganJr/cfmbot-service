@@ -34,6 +34,10 @@ html
         border: 1px solid rgba(232, 169, 65, 0.35);
         border-radius: 6px;
         padding: 0.3rem 0.85rem;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       .card {
         background-color: #101d2e;
@@ -88,6 +92,16 @@ html
         box-shadow: none;
       }
       .border.rounded { border-color: rgba(255, 255, 255, 0.15) !important; }
+      html { font-size: 14px; }
+      @media (min-width: 768px) { html { font-size: 16px; } }
+      .container-fluid { padding-left: 0.85rem; padding-right: 0.85rem; }
+      @media (max-width: 767.98px) {
+        .table-responsive { font-size: 0.85rem; }
+        .card-body { padding: 0.85rem; }
+        .accordion-body { padding: 0.85rem; }
+        #unlinkBtn { width: 100%; }
+        .input-group #exportSelect { min-width: 0; }
+      }
 body(data-bs-theme="dark")
   nav.site-navbar
     span.site-brand
@@ -96,19 +110,19 @@ body(data-bs-theme="dark")
   .div(class="container-fluid" style="margin-top: 8px;")
     .d-flex.align-items-center.gap-2.mb-2
       span.league-nav-brand #{leagueName}
-    .row.align-items-center
-     .col-auto
+    .row.align-items-center.gy-2
+     .col-12.col-md-auto
        div
          div #{seasonWeekType}, Year #{seasonInfo.calendarYear}
          div Current Week: #{seasonInfo.weekTitle} #{seasonInfo.displayWeek > 0 ? seasonInfo.displayWeek : ''}
          div Last Advance: #{lastAdvance.toDateString()}
-     .col.text-center
+     .col-12.col-md.text-center
        .input-group
          select.form-select#exportSelect
            each key in Object.keys(exportOptions)
              option(value=key) #{key}
          button.btn.btn-primary#exportBtn(type="button") Export
-     .col-auto.text-center
+     .col-12.col-md-auto.text-center
        button.btn.btn-danger#unlinkBtn(type="button") Unlink League
     div#exportFeedback
     .table-responsive
