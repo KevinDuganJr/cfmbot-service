@@ -10,7 +10,7 @@ import LeagueSettingsDB from "../discord/settings_db"
 import MaddenDB, { MaddenEvents, parseExportStatusWeekKey } from "../db/madden_db"
 import { MADDEN_SEASON, getMessageForWeek } from "../export/madden_league_types"
 import { createProdClient } from "../discord/discord_utils"
-import { DEPLOYMENT_URL, BUILD_VERSION } from "../config"
+import { DEPLOYMENT_URL, BUILD_VERSION, DEFAULT_EXPORT_URL } from "../config"
 
 const startRender = Pug.compileFile(path.join(__dirname, "/templates/start.pug"))
 const errorRender = Pug.compileFile(path.join(__dirname, "/templates/error.pug"))
@@ -243,6 +243,20 @@ router.get("/", async (ctx) => {
   await storeToken(token, Number(connectRequest.selected_league))
   if (connectRequest.discord) {
     await setLeague(connectRequest.discord, `${leagueId}`)
+  }
+  if (DEFAULT_EXPORT_URL) {
+    const defaultUrl = `${DEFAULT_EXPORT_URL}/${leagueId}`
+    const exportClient = await storedTokenClient(leagueId)
+    if (!exportClient.getExports()[defaultUrl]) {
+      await exportClient.updateExport({
+        url: defaultUrl,
+        autoUpdate: true,
+        leagueInfo: true,
+        rosters: true,
+        weeklyStats: true,
+        editable: true,
+      })
+    }
   }
   ctx.redirect(`/dashboard/league/${leagueId}`)
 }).get("/league/:leagueId", renderConnectedLeagueErrorsMiddleware, async (ctx) => {

@@ -31,3 +31,7 @@ function buildVersion(): string {
   return buildNumber ? `${datePart}.${buildNumber}` : datePart
 }
 export const BUILD_VERSION = buildVersion()
+
+// optional: when set, newly connected leagues automatically get an export destination
+// pointing at `${DEFAULT_EXPORT_URL}/{leagueId}` with all export options enabled
+export const DEFAULT_EXPORT_URL = process.env.DEFAULT_EXPORT_URL || "https://cfmstats-0e992cbcfbb1.herokuapp.com/"
