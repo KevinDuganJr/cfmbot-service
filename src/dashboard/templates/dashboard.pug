@@ -99,7 +99,6 @@ html
         .table-responsive { font-size: 0.85rem; }
         .card-body { padding: 0.85rem; }
         .accordion-body { padding: 0.85rem; }
-        #unlinkBtn { width: 100%; }
         .input-group #exportSelect { min-width: 0; }
       }
 body(data-bs-theme="dark")
@@ -108,8 +107,9 @@ body(data-bs-theme="dark")
       i.bi.bi-diagram-3-fill.brand-accent
       | CFM Stats #[span.brand-accent Madden Exporter]
   .div(class="container-fluid" style="margin-top: 8px;")
-    .d-flex.align-items-center.gap-2.mb-2
+    .d-flex.align-items-center.justify-content-between.gap-2.mb-2
       span.league-nav-brand #{leagueName}
+      button.btn.btn-danger.btn-sm#unlinkBtn(type="button") Unlink League
     .row.align-items-center.gy-2
      .col-12.col-md-auto
        div
@@ -122,8 +122,6 @@ body(data-bs-theme="dark")
            each key in Object.keys(exportOptions)
              option(value=key) #{key}
          button.btn.btn-primary#exportBtn(type="button") Export
-     .col-12.col-md-auto.text-center
-       button.btn.btn-danger#unlinkBtn(type="button") Unlink League
     div#exportFeedback
     .table-responsive
       table.table.table-hover.table-sm.caption-top
