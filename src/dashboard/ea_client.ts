@@ -401,9 +401,10 @@ export async function storeToken(token: TokenInformation, leagueId: number) {
   const leagueConnection: StoredMaddenConnection = {
     blazeId: `${token.blazeId}`,
     leagueId: leagueId,
-    destinations: {
-      [DEFAULT_EXPORT]: { autoUpdate: false, leagueInfo: true, rosters: false, weeklyStats: false, url: DEFAULT_EXPORT, editable: false }
-    }
+    // Not seeding DEFAULT_EXPORT here anymore - it only feeds this bot's own MaddenDB, which nothing
+    // outside src/discord/ reads. Leaves the constant/type in place so it can still be added manually
+    // (or re-enabled here) if Discord features get turned back on for a league later.
+    destinations: {}
   }
   await db.collection("madden_data27").doc(`${leagueId}`).set(leagueConnection)
   const tokenInformation: StoredTokenInformation = {

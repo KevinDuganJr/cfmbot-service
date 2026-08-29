@@ -249,31 +249,33 @@ router.get("/", async (ctx) => {
     const exportClient = await storedTokenClient(leagueId)
     const existingExports = exportClient.getExports()
 
-    // Keyed by the numeric EA league id - works once CFMStats already knows this league
-    // (Leagues.EALeagueId is set), since CFMStats.Sync matches incoming exports by EALeagueId too.
-    const defaultUrl = `${trimmedDefaultExportUrl}/${leagueId}`
-    if (!existingExports[defaultUrl]) {
-      await exportClient.updateExport({
-        url: defaultUrl,
-        autoUpdate: true,
-        leagueInfo: true,
-        rosters: true,
-        weeklyStats: true,
-        extraData: true,
-        editable: true,
-      })
-    }
-
-    // Keyed by CFMStats' own ExportCode - this is what lets CFMStats.Sync bootstrap a brand-new
-    // league on its first-ever export: Sync can't match by EALeagueId yet (it's still null), but it
-    // can match by ExportCode, and once matched it writes EALeagueId back itself from the payload.
-    // Without this, a never-before-linked league's first export has nothing to match against and
-    // gets punted/deleted by Sync instead of connecting.
     if (connectRequest.cfmstats_export_code) {
+      // Keyed by CFMStats' own ExportCode - this is what lets CFMStats.Sync bootstrap a brand-new
+      // league on its first-ever export: Sync can't match by EALeagueId yet (it's still null), but it
+      // can match by ExportCode, and once matched it writes EALeagueId back itself from the payload.
+      // Without this, a never-before-linked league's first export has nothing to match against and
+      // gets punted/deleted by Sync instead of connecting. Once an export code is present we only add
+      // this one - the EALeagueId-keyed URL below would just be a redundant duplicate destination for
+      // the same league, since Sync backfills EALeagueId onto this same record.
       const cfmstatsExportUrl = `${trimmedDefaultExportUrl}/${connectRequest.cfmstats_export_code}`
       if (!existingExports[cfmstatsExportUrl]) {
         await exportClient.updateExport({
           url: cfmstatsExportUrl,
+          autoUpdate: true,
+          leagueInfo: true,
+          rosters: true,
+          weeklyStats: true,
+          extraData: true,
+          editable: true,
+        })
+      }
+    } else {
+      // Keyed by the numeric EA league id - works once CFMStats already knows this league
+      // (Leagues.EALeagueId is set), since CFMStats.Sync matches incoming exports by EALeagueId too.
+      const defaultUrl = `${trimmedDefaultExportUrl}/${leagueId}`
+      if (!existingExports[defaultUrl]) {
+        await exportClient.updateExport({
+          url: defaultUrl,
           autoUpdate: true,
           leagueInfo: true,
           rosters: true,
