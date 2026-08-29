@@ -3,7 +3,7 @@ import Pug from "pug"
 import path from "path"
 import { Next, ParameterizedContext } from "koa"
 import { EA_LOGIN_URL, AUTH_SOURCE, REDIRECT_URL, CLIENT_ID, CLIENT_SECRET, AccountToken, TokenInfo, Entitlements, Persona, MACHINE_KEY, Personas, ENTITLEMENT_TO_VALID_NAMESPACE, NAMESPACES, ENTITLEMENT_TO_SYSTEM, SystemConsole, exportOptions, seasonType, ALL_CONSOLES, ConsoleOverride, CONSOLE_OVERRIDE_TO_ENTITLEMENT_BY_YEAR, CONSOLE_OVERRIDE_TO_VALID_NAMESPACE, GAME_CONFIG, GameYear, ENTITLEMENT_TO_ENTITLEMENT_YEAR, GAME_YEARS_FOR_ENTITLEMENT_YEAR } from "./ea_constants"
-import { BlazeError, ExportContext, ExportDestination, unlinkLeague, ephemeralClientFromToken, exporterForLeague, storeToken, storedTokenClient, EAAccountError, getTask, getPositionInQueue, getLeagueIdForExportCode } from "./ea_client"
+import { BlazeError, ExportContext, ExportDestination, unlinkLeague, ephemeralClientFromToken, exporterForLeague, storeToken, storedTokenClient, EAAccountError, getTask, getPositionInQueue } from "./ea_client"
 import { removeLeague, setLeague } from "../connections/routes"
 import { discordLeagueView } from "../db/view"
 import LeagueSettingsDB from "../discord/settings_db"
@@ -74,22 +74,6 @@ router.get("/", async (ctx) => {
     }
   }
   ctx.body = startRender({ url: EA_LOGIN_URL, discord: discordConnection, cfmstatsExportCode, buildVersion: BUILD_VERSION })
-}).get("/lookup", async (ctx) => {
-  // Polled by CFMStats after sending a user here with ?cfmstats_export_code=... to discover the
-  // eaLeagueId once the user finishes connecting their league, without them having to copy it back manually.
-  const { cfmstats_export_code: cfmstatsExportCode } = ctx.query as { cfmstats_export_code?: string }
-  if (!cfmstatsExportCode) {
-    ctx.status = 400
-    ctx.body = { error: "cfmstats_export_code is required" }
-    return
-  }
-  const leagueId = await getLeagueIdForExportCode(cfmstatsExportCode)
-  if (leagueId === null) {
-    ctx.status = 404
-    return
-  }
-  ctx.status = 200
-  ctx.body = { leagueId }
 }).post("/retrievePersonas", renderErrorsMiddleware, async (ctx, next) => {
   const { code: rawCode, discord, cfmstats_export_code: cfmstatsExportCode } = ctx.request.body as RetrievePersonasRequest
   const searchParams = rawCode.substring(rawCode.indexOf("?"))
@@ -256,14 +240,19 @@ router.get("/", async (ctx) => {
     throw new EAAccountError(`Invalid league id ${leagueId}. Select a valid madden league`, `You may not have any madden leagues, which may mean you are signed into the wrong EA account. One potential fix is to try connecting this EA account to your Madden one, or checking if it is the right one. You can do this at this at this link <a href="https://myaccount.ea.com/cp-ui/connectaccounts/index" target="_blank">https://myaccount.ea.com/cp-ui/connectaccounts/index</a>`)
   }
 
-  await storeToken(token, Number(connectRequest.selected_league), connectRequest.cfmstats_export_code)
+  await storeToken(token, Number(connectRequest.selected_league))
   if (connectRequest.discord) {
     await setLeague(connectRequest.discord, `${leagueId}`)
   }
   if (DEFAULT_EXPORT_URL) {
-    const defaultUrl = `${DEFAULT_EXPORT_URL.replace(/\/+$/, "")}/${leagueId}`
+    const trimmedDefaultExportUrl = DEFAULT_EXPORT_URL.replace(/\/+$/, "")
     const exportClient = await storedTokenClient(leagueId)
-    if (!exportClient.getExports()[defaultUrl]) {
+    const existingExports = exportClient.getExports()
+
+    // Keyed by the numeric EA league id - works once CFMStats already knows this league
+    // (Leagues.EALeagueId is set), since CFMStats.Sync matches incoming exports by EALeagueId too.
+    const defaultUrl = `${trimmedDefaultExportUrl}/${leagueId}`
+    if (!existingExports[defaultUrl]) {
       await exportClient.updateExport({
         url: defaultUrl,
         autoUpdate: true,
@@ -273,6 +262,26 @@ router.get("/", async (ctx) => {
         extraData: true,
         editable: true,
       })
+    }
+
+    // Keyed by CFMStats' own ExportCode - this is what lets CFMStats.Sync bootstrap a brand-new
+    // league on its first-ever export: Sync can't match by EALeagueId yet (it's still null), but it
+    // can match by ExportCode, and once matched it writes EALeagueId back itself from the payload.
+    // Without this, a never-before-linked league's first export has nothing to match against and
+    // gets punted/deleted by Sync instead of connecting.
+    if (connectRequest.cfmstats_export_code) {
+      const cfmstatsExportUrl = `${trimmedDefaultExportUrl}/${connectRequest.cfmstats_export_code}`
+      if (!existingExports[cfmstatsExportUrl]) {
+        await exportClient.updateExport({
+          url: cfmstatsExportUrl,
+          autoUpdate: true,
+          leagueInfo: true,
+          rosters: true,
+          weeklyStats: true,
+          extraData: true,
+          editable: true,
+        })
+      }
     }
   }
   ctx.redirect(`/dashboard/league/${leagueId}`)
