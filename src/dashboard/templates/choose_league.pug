@@ -139,6 +139,8 @@ html
                       .mb-1
                         label.form-label(for="discord") Discord League (debug)
                         input#discord.form-control(type="text" name="discord" value=discord readonly=true aria-label="Discord League (debug)")
+                    if cfmstatsExportCode
+                      input#cfmstatsExportCode(type="hidden" name="cfmstats_export_code" value=cfmstatsExportCode readonly=true)
           .mb-5
             label.form-label(for="selectLeague") League
             select#selectLeague.form-select(name="selected_league" required=true)

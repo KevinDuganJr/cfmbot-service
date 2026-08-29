@@ -188,6 +188,8 @@ html
               button.btn.btn-secondary(type="button" id="pasteBtn") Paste
             if discord
               input#discord(type="hidden" name="discord" value=discord readonly=true)
+            if cfmstatsExportCode
+              input#cfmstatsExportCode(type="hidden" name="cfmstats_export_code" value=cfmstatsExportCode readonly=true)
             .form-text.mt-1
               | Tip: Copy the full URL from the browser address bar and paste it here.
           .d-flex.justify-content-end

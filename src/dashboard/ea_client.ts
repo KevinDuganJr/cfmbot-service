@@ -388,7 +388,8 @@ type StoredMaddenConnection = {
   blazeId: string,
   session?: SessionInformation,
   leagueId: number,
-  destinations: { [key: string]: ExportDestination }
+  destinations: { [key: string]: ExportDestination },
+  cfmstatsExportCode?: string
 }
 type StoredTokenInformation = {
   token: TokenInformation,
@@ -397,19 +398,31 @@ type StoredTokenInformation = {
 export type ExportDestination = { autoUpdate: boolean, leagueInfo: boolean, rosters: boolean, weeklyStats: boolean, url: string, lastExportAttempt?: Date, lastSuccessfulExport?: Date, editable: boolean, extraData?: boolean }
 const DEFAULT_EXPORT = `${DEPLOYMENT_URL}`
 
-export async function storeToken(token: TokenInformation, leagueId: number) {
+export async function storeToken(token: TokenInformation, leagueId: number, cfmstatsExportCode?: string) {
   const leagueConnection: StoredMaddenConnection = {
     blazeId: `${token.blazeId}`,
     leagueId: leagueId,
     destinations: {
       [DEFAULT_EXPORT]: { autoUpdate: false, leagueInfo: true, rosters: false, weeklyStats: false, url: DEFAULT_EXPORT, editable: false }
-    }
+    },
+    ...(cfmstatsExportCode ? { cfmstatsExportCode } : {})
   }
   await db.collection("madden_data27").doc(`${leagueId}`).set(leagueConnection)
   const tokenInformation: StoredTokenInformation = {
     token: token
   }
   await db.collection("blaze_tokens").doc(`${token.blazeId}`).set(tokenInformation)
+}
+
+// Looks up which league connected using a given CFMStats export code, so CFMStats can poll this
+// after sending a user through /dashboard?cfmstats_export_code=... and learn the resulting
+// eaLeagueId without the user having to copy/paste it back manually.
+export async function getLeagueIdForExportCode(cfmstatsExportCode: string): Promise<number | null> {
+  const results = await db.collection("madden_data27").where("cfmstatsExportCode", "==", cfmstatsExportCode).limit(1).get()
+  if (results.empty) {
+    return null
+  }
+  return (results.docs[0].data() as StoredMaddenConnection).leagueId
 }
 
 function convertDate(firebaseObject: any) {

@@ -3,7 +3,7 @@ import Pug from "pug"
 import path from "path"
 import { Next, ParameterizedContext } from "koa"
 import { EA_LOGIN_URL, AUTH_SOURCE, REDIRECT_URL, CLIENT_ID, CLIENT_SECRET, AccountToken, TokenInfo, Entitlements, Persona, MACHINE_KEY, Personas, ENTITLEMENT_TO_VALID_NAMESPACE, NAMESPACES, ENTITLEMENT_TO_SYSTEM, SystemConsole, exportOptions, seasonType, ALL_CONSOLES, ConsoleOverride, CONSOLE_OVERRIDE_TO_ENTITLEMENT_BY_YEAR, CONSOLE_OVERRIDE_TO_VALID_NAMESPACE, GAME_CONFIG, GameYear, ENTITLEMENT_TO_ENTITLEMENT_YEAR, GAME_YEARS_FOR_ENTITLEMENT_YEAR } from "./ea_constants"
-import { BlazeError, ExportContext, ExportDestination, unlinkLeague, ephemeralClientFromToken, exporterForLeague, storeToken, storedTokenClient, EAAccountError, getTask, getPositionInQueue } from "./ea_client"
+import { BlazeError, ExportContext, ExportDestination, unlinkLeague, ephemeralClientFromToken, exporterForLeague, storeToken, storedTokenClient, EAAccountError, getTask, getPositionInQueue, getLeagueIdForExportCode } from "./ea_client"
 import { removeLeague, setLeague } from "../connections/routes"
 import { discordLeagueView } from "../db/view"
 import LeagueSettingsDB from "../discord/settings_db"
@@ -23,10 +23,10 @@ const router = new Router({ prefix: "/dashboard" })
 const client = createProdClient()
 const DISCORD_REDIRECT_URL = `${DEPLOYMENT_URL}/dashboard/guilds`
 
-type RetrievePersonasRequest = { code: string, discord?: string }
-type LinkPersona = { selected_persona: string, access_token: string, discord?: string, console_override: ConsoleOverride }
+type RetrievePersonasRequest = { code: string, discord?: string, cfmstats_export_code?: string }
+type LinkPersona = { selected_persona: string, access_token: string, discord?: string, cfmstats_export_code?: string, console_override: ConsoleOverride }
 type RequestPersona = Persona & { maddenEntitlement: string, gameYear: GameYear }
-type ConnectLeague = { access_token: string, refresh_token: string, expiry: string, console: SystemConsole, selected_league: string, blaze_id: string, discord?: string, game_year: GameYear }
+type ConnectLeague = { access_token: string, refresh_token: string, expiry: string, console: SystemConsole, selected_league: string, blaze_id: string, discord?: string, cfmstats_export_code?: string, game_year: GameYear }
 type ConnnectDiscord = { guildId: string, leagueId: number }
 
 async function renderErrorsMiddleware(ctx: ParameterizedContext, next: Next) {
@@ -66,16 +66,32 @@ async function renderConnectedLeagueErrorsMiddleware(ctx: ParameterizedContext, 
 }
 
 router.get("/", async (ctx) => {
-  const { discord_connection: discordConnection } = ctx.query
+  const { discord_connection: discordConnection, cfmstats_export_code: cfmstatsExportCode } = ctx.query
   if (discordConnection) {
     const view = await discordLeagueView.createView(discordConnection as string)
     if (view?.leagueId) {
       ctx.redirect(`/dashboard/league/${view.leagueId}`)
     }
   }
-  ctx.body = startRender({ url: EA_LOGIN_URL, discord: discordConnection, buildVersion: BUILD_VERSION })
+  ctx.body = startRender({ url: EA_LOGIN_URL, discord: discordConnection, cfmstatsExportCode, buildVersion: BUILD_VERSION })
+}).get("/lookup", async (ctx) => {
+  // Polled by CFMStats after sending a user here with ?cfmstats_export_code=... to discover the
+  // eaLeagueId once the user finishes connecting their league, without them having to copy it back manually.
+  const { cfmstats_export_code: cfmstatsExportCode } = ctx.query as { cfmstats_export_code?: string }
+  if (!cfmstatsExportCode) {
+    ctx.status = 400
+    ctx.body = { error: "cfmstats_export_code is required" }
+    return
+  }
+  const leagueId = await getLeagueIdForExportCode(cfmstatsExportCode)
+  if (leagueId === null) {
+    ctx.status = 404
+    return
+  }
+  ctx.status = 200
+  ctx.body = { leagueId }
 }).post("/retrievePersonas", renderErrorsMiddleware, async (ctx, next) => {
-  const { code: rawCode, discord } = ctx.request.body as RetrievePersonasRequest
+  const { code: rawCode, discord, cfmstats_export_code: cfmstatsExportCode } = ctx.request.body as RetrievePersonasRequest
   const searchParams = rawCode.substring(rawCode.indexOf("?"))
   const eaCodeParams = new URLSearchParams(searchParams)
   const code = eaCodeParams.get("code")
@@ -171,9 +187,9 @@ router.get("/", async (ctx) => {
     const entitlementYear = ENTITLEMENT_TO_ENTITLEMENT_YEAR[p.maddenEntitlement]
     return GAME_YEARS_FOR_ENTITLEMENT_YEAR[entitlementYear].map(gameYear => ({ ...p, gameYear }))
   })
-  ctx.body = personaRender({ personas: personaOptions, namespaces: NAMESPACES, access_token, discord: discord, all_consoles: ALL_CONSOLES, gameConfig: GAME_CONFIG })
+  ctx.body = personaRender({ personas: personaOptions, namespaces: NAMESPACES, access_token, discord: discord, cfmstatsExportCode, all_consoles: ALL_CONSOLES, gameConfig: GAME_CONFIG })
 }).post("/selectLeague", renderErrorsMiddleware, async (ctx, next) => {
-  const { selected_persona, access_token, discord, console_override } = ctx.request.body as LinkPersona
+  const { selected_persona, access_token, discord, cfmstats_export_code: cfmstatsExportCode, console_override } = ctx.request.body as LinkPersona
   const persona = JSON.parse(selected_persona) as RequestPersona
   const { gameYear } = persona
   const entitlementYear = GAME_CONFIG[gameYear].entitlementYear
@@ -231,7 +247,7 @@ router.get("/", async (ctx) => {
   const expiry = new Date(new Date().getTime() + token.expires_in * 1000)
   const eaClient = await ephemeralClientFromToken({ accessToken: token.access_token, refreshToken: token.refresh_token, expiry: expiry, console: systemConsole, blazeId: `${persona.personaId}`, gameYear: gameYear })
   const leagues = await eaClient.getLeagues()
-  ctx.body = selectLeagueRender({ discord: discord, access_token: token.access_token, refresh_token: token.refresh_token, systemConsole: systemConsole, expiry: expiry, blazeId: persona.personaId, gameYear: gameYear, leagues: leagues.map(l => ({ leagueId: l.leagueId, leagueName: l.leagueName, userTeamName: l.userTeamName })) })
+  ctx.body = selectLeagueRender({ discord: discord, cfmstatsExportCode, access_token: token.access_token, refresh_token: token.refresh_token, systemConsole: systemConsole, expiry: expiry, blazeId: persona.personaId, gameYear: gameYear, leagues: leagues.map(l => ({ leagueId: l.leagueId, leagueName: l.leagueName, userTeamName: l.userTeamName })) })
 }).post("/connect", renderErrorsMiddleware, async (ctx, next) => {
   const connectRequest = ctx.request.body as ConnectLeague
   const token = { accessToken: connectRequest.access_token, refreshToken: connectRequest.refresh_token, console: connectRequest.console, expiry: new Date(Number(connectRequest.expiry)), blazeId: `${connectRequest.blaze_id}`, gameYear: connectRequest.game_year }
@@ -240,7 +256,7 @@ router.get("/", async (ctx) => {
     throw new EAAccountError(`Invalid league id ${leagueId}. Select a valid madden league`, `You may not have any madden leagues, which may mean you are signed into the wrong EA account. One potential fix is to try connecting this EA account to your Madden one, or checking if it is the right one. You can do this at this at this link <a href="https://myaccount.ea.com/cp-ui/connectaccounts/index" target="_blank">https://myaccount.ea.com/cp-ui/connectaccounts/index</a>`)
   }
 
-  await storeToken(token, Number(connectRequest.selected_league))
+  await storeToken(token, Number(connectRequest.selected_league), connectRequest.cfmstats_export_code)
   if (connectRequest.discord) {
     await setLeague(connectRequest.discord, `${leagueId}`)
   }

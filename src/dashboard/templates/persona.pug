@@ -99,6 +99,8 @@ html
             .mb-3
               label.form-label(for="discord") Discord League (debug)
               input#discord.form-control(type="text" name="discord" value=discord readonly=true aria-label="Discord League (debug)")
+          if cfmstatsExportCode
+            input#cfmstatsExportCode(type="hidden" name="cfmstats_export_code" value=cfmstatsExportCode readonly=true)
           .mb-3
             label.form-label(for="selectedPersona") Persona
             select#selectedPersona.form-select(name="selected_persona" required=true)
