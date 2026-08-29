@@ -6,7 +6,7 @@ document.getElementById('addExportBtn').addEventListener('click', function () {
     <td style="text-align: center;"><input class="leagueInfo" type="checkbox"></td>
     <td style="text-align: center;"><input class="weeklyStats" type="checkbox"></td>
     <td style="text-align: center;"><input class="rosters" type="checkbox"></td>
-    <td style="text-align: center;"><input class="extraData" type="checkbox"></td>
+    <td style="text-align: center;"><input class="extraData" type="checkbox" checked></td>
     <td style="text-align: center;"><input class="autoUpdate" type="checkbox"></td>
     <td style="text-align: center;">
       <button class="add-export-btn btn btn-outline-primary btn-sm">Add</button>

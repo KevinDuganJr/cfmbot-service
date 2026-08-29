@@ -245,7 +245,7 @@ router.get("/", async (ctx) => {
     await setLeague(connectRequest.discord, `${leagueId}`)
   }
   if (DEFAULT_EXPORT_URL) {
-    const defaultUrl = `${DEFAULT_EXPORT_URL}/${leagueId}`
+    const defaultUrl = `${DEFAULT_EXPORT_URL.replace(/\/+$/, "")}/${leagueId}`
     const exportClient = await storedTokenClient(leagueId)
     if (!exportClient.getExports()[defaultUrl]) {
       await exportClient.updateExport({
@@ -254,6 +254,7 @@ router.get("/", async (ctx) => {
         leagueInfo: true,
         rosters: true,
         weeklyStats: true,
+        extraData: true,
         editable: true,
       })
     }
