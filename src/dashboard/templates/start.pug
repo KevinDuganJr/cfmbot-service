@@ -53,6 +53,12 @@ html
         color: #e8c88a;
         border-radius: 0.4rem;
       }
+      .alert-warning {
+        background: rgba(220, 53, 69, 0.15);
+        border: 1px solid rgba(220, 53, 69, 0.5);
+        color: #f8d7da;
+        border-radius: 0.4rem;
+      }
       .alert-info strong { color: #f0c15c; }
       code {
         color: #e0a24a;
@@ -133,15 +139,16 @@ html
         .alert.alert-info
           strong Please read before continuing:
           |  This setup links the CFM Stats Madden Exporter to your EA Account and your Madden league. It does NOT store your EA Account or console credentials (PSN, Xbox, etc.). It uses secure tokens to maintain the connection.
-        p.mb-0
-          | Follow these steps:
+        
+        .alert.alert-warning.mb-3
+          strong ⚠️ EXPECT AN ERROR PAGE: 
+          | When you complete the EA step, your browser WILL show a "Page Cannot Be Displayed" or "Unable to Connect" error screen starting with #[code http://127.0.0.1]. #[strong This is normal!] Simply copy that broken URL and return here.
+
+        p.mb-0 Follow these steps:
         ol.mt-2
-          li
-            | Click the "Login to EA" button.
-            small.text-muted.ms-2(role="note") (NOTE: This opens the EA login page in a new tab.)
-          li After signing in you may see a blank or error page and your browser URL will be at:
-            code.ms-2 http://127.0.0.1
-          li Copy the entire URL from your browser (the address bar) and paste it into the box below, then submit.
+          li Click #[strong Login to EA] below (opens EA in a new tab).
+          li Sign in if requested. You will end up on a blank/error page starting with #[code http://127.0.0.1].
+          li Copy the full URL from that page's address bar and paste it below.
         hr
         a.btn.btn-primary.me-2(href=url target="_blank" rel="noopener") Login to EA
         form.d-inline(action="/dashboard/retrievePersonas" method="POST")
@@ -153,7 +160,7 @@ html
             if discord
               input#discord(type="hidden" name="discord" value=discord readonly=true)
             .form-text.mt-1
-              | Tip: copy the full URL from the browser address bar and paste it here. The form will enable the Continue to Next button when the URL looks valid.
+              | Tip: Copy the full URL from the browser address bar and paste it here.
           .d-flex.justify-content-end
             button#submit.btn.btn-success(type="submit" disabled=true) Continue to Next Step
           .footer-note(role="note")
@@ -173,17 +180,32 @@ html
           return v.startsWith('http://127.0.0.1') || v.startsWith('127.0.0.1')
         }
 
+        async function tryAutoPaste() {
+          try {
+            const text = await navigator.clipboard.readText()
+            if (looksLikeLocalRedirect(text)) {
+              inputElement.value = text.trim()
+              inputElement.dispatchEvent(new Event('input', { bubbles: true }))
+            }
+          } catch (e) {
+            // Permission denied or browser clipboard access limited
+          }
+        }
+
         inputElement.addEventListener('input', function () { btn.disabled = !looksLikeLocalRedirect(this.value) })
 
         pasteBtn.addEventListener('click', async function () {
           try {
             const text = await navigator.clipboard.readText()
             if (text) {
-              inputElement.value = text
+              inputElement.value = text.trim()
               inputElement.dispatchEvent(new Event('input', { bubbles: true }))
             }
           } catch (e) {
             inputElement.focus()
           }
         })
+
+        // Auto-check clipboard when user clicks back into this tab
+        window.addEventListener('focus', tryAutoPaste)
       })()
