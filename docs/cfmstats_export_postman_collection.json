@@ -1,0 +1,133 @@
+{
+  "info": {
+    "name": "CFMStats Export API",
+    "description": "Trigger and poll a Madden league export against the cfmstats dashboard service.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://cfmstats-export-069ef72d229d.herokuapp.com"
+    },
+    {
+      "key": "leagueId",
+      "value": "3105208"
+    },
+    {
+      "key": "taskId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Trigger Export",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "const json = pm.response.json();",
+              "if (json.taskId) {",
+              "    pm.collectionVariables.set(\"taskId\", json.taskId);",
+              "    console.log(\"Saved taskId:\", json.taskId);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"exportOption\": \"Current Week\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/dashboard/league/{{leagueId}}/export",
+          "host": ["{{baseUrl}}"],
+          "path": ["dashboard", "league", "{{leagueId}}", "export"]
+        }
+      }
+    },
+    {
+      "name": "Check Export Status",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "console.log(pm.response.json());"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"taskId\": \"{{taskId}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/dashboard/league/exportStatus",
+          "host": ["{{baseUrl}}"],
+          "path": ["dashboard", "league", "exportStatus"]
+        }
+      }
+    },
+    {
+      "name": "Get League Status",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "console.log(pm.response.json());"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/dashboard/league/{{leagueId}}/status",
+          "host": ["{{baseUrl}}"],
+          "path": ["dashboard", "league", "{{leagueId}}", "status"]
+        }
+      }
+    },
+    {
+      "name": "View Dashboard (sanity check)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/dashboard/league/{{leagueId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["dashboard", "league", "{{leagueId}}"]
+        }
+      }
+    }
+  ]
+}
