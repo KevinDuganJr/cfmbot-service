@@ -392,7 +392,7 @@ router.get("/", async (ctx) => {
   }
   const eaClient = await storedTokenClient(leagueId)
   const [leagueInfo, exportStatus] = await Promise.all([eaClient.getLeagueInfo(leagueId), MaddenDB.getExportStatus(rawLeagueId)])
-  const { careerHubInfo: { seasonInfo }, secsSinceLastAdvancedTime } = leagueInfo
+  const { careerHubInfo: { seasonInfo }, secsSinceLastAdvancedTime, userAdminHubInfo } = leagueInfo
   const lastAdvance = new Date(Date.now() - (secsSinceLastAdvancedTime * 1000))
   ctx.status = 200
   ctx.body = {
@@ -400,7 +400,8 @@ router.get("/", async (ctx) => {
     currentWeek: getMessageForWeek(seasonInfo.displayWeek),
     seasonWeekType: seasonType(seasonInfo),
     lastAdvance: lastAdvance,
-    exportStatus: exportStatus
+    exportStatus: exportStatus,
+    userInfoMap: userAdminHubInfo.userInfoMap
   }
 }).post("/league/:leagueId/unlink", async (ctx, next) => {
   const { leagueId: rawLeagueId } = ctx.params
