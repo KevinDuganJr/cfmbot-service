@@ -4,7 +4,7 @@ import { APIApplicationCommandInteractionDataBooleanOption, APIApplicationComman
 import { discordLeagueView, LeagueLogos, leagueLogosView } from "../../db/view"
 import fuzzysort from "fuzzysort"
 import MaddenDB, { PlayerListQuery, PlayerStatType, PlayerStats, TeamList, createPlayerKey } from "../../db/madden_db"
-import { DevTrait, LBStyleTrait, MADDEN_SEASON, MaddenGame, POSITIONS, POSITION_GROUP, PlayBallTrait, Player, QBStyleTrait, SensePressureTrait, YesNoTrait } from "../../export/madden_league_types"
+import { DevTrait, LBStyleTrait, MADDEN_SEASON, MaddenGame, POSITIONS, POSITION_GROUP, PlayBallTrait, Player, QBStyleTrait, SensePressureTrait, Standing, YesNoTrait } from "../../export/madden_league_types"
 import { ExportContext, exporterForLeague, storedTokenClient } from "../../dashboard/ea_client"
 import EventDB, { EventDelivery } from "../../db/events_db"
 import { EventTypes, RetiredPlayersEvent } from "../../db/events"
@@ -79,7 +79,8 @@ async function showPlayerCard(playerSearch: string, client: DiscordClient, token
       }
       searchRosterId = Number(results[0].rosterId)
     }
-    const [player, teamList] = await Promise.all([MaddenDB.getPlayer(leagueId, `${searchRosterId}`), MaddenDB.getLatestTeams(leagueId)])
+    const [player, teamList, standings] = await Promise.all([MaddenDB.getPlayer(leagueId, `${searchRosterId}`), MaddenDB.getLatestTeams(leagueId), MaddenDB.getLatestStandings(leagueId)])
+    const madden27 = isMaddenM27(standings)
     const backToSearch = pagination ? [
       {
         type: ComponentType.Separator,
@@ -105,7 +106,7 @@ async function showPlayerCard(playerSearch: string, client: DiscordClient, token
       components: [
         {
           type: ComponentType.TextDisplay,
-          content: formatPlayerCard(player, teamList, logos, playerConfiguration)
+          content: formatPlayerCard(player, teamList, logos, playerConfiguration, madden27)
         },
         {
           type: ComponentType.Separator,
@@ -743,6 +744,18 @@ function formatMoney(m: number) {
   }
 }
 
+function correctedCapValue(v: number, isMaddenM27: boolean) {
+  return isMaddenM27 ? v * 10000 : v
+}
+
+function isMaddenM27(standings: Standing[]): boolean {
+  if (standings.length === 0) {
+    return false
+  }
+  const [latest] = standings.sort((a, b) => b.calendarYear - a.calendarYear || b.stageIndex - a.stageIndex || b.weekIndex - a.weekIndex)
+  return latest.calendarYear - latest.seasonIndex >= 2026
+}
+
 function getTeamAbbr(teamId: number, teams: TeamList) {
   if (teamId === 0) {
     return "FA"
@@ -769,7 +782,7 @@ function formatAttributes(topAttributes: { name: string, value: number }[]): str
   return lines.join('\n');
 }
 
-function formatPlayerCard(player: Player, teams: TeamList, logos: LeagueLogos, configuration: PlayerConfiguration) {
+function formatPlayerCard(player: Player, teams: TeamList, logos: LeagueLogos, configuration: PlayerConfiguration, isMaddenM27: boolean) {
 
   const teamAbbr = getTeamAbbr(player.teamId, teams)
   const heightFeet = Math.floor(player.height / 12)
@@ -779,7 +792,7 @@ function formatPlayerCard(player: Player, teams: TeamList, logos: LeagueLogos, c
   let age = player.age
 
   const contractStatus = player.isFreeAgent ? "Free Agent" :
-    `> **Length**: ${player.contractYearsLeft}/${player.contractLength} yrs | **Salary**: $${formatMoney(player.contractSalary)}\n> **Cap Hit**: $${formatMoney(player.capHit)} | **Bonus**: $${formatMoney(player.contractBonus)}\n> **Savings**: $${formatMoney(player.capReleaseNetSavings)} | **Penalty**: $${formatMoney(player.capReleasePenalty)}`
+    `> **Length**: ${player.contractYearsLeft}/${player.contractLength} yrs | **Salary**: $${formatMoney(player.contractSalary)}\n> **Cap Hit**: $${formatMoney(correctedCapValue(player.capHit, isMaddenM27))} | **Bonus**: $${formatMoney(player.contractBonus)}\n> **Savings**: $${formatMoney(player.capReleaseNetSavings)} | **Penalty**: $${formatMoney(correctedCapValue(player.capReleasePenalty, isMaddenM27))}`
 
   const topAttributes = getTopAttributesByPosition(player)
 
