@@ -29,7 +29,8 @@ export interface MaddenExportDestination {
   receiving(platform: string, leagueId: string, week: number, stage: Stage, data: ReceivingExport): Promise<ExportResult>,
   freeagents(platform: string, leagueId: string, data: RosterExport): Promise<ExportResult>,
   teamRoster(platform: string, leagueId: string, teamId: string, data: RosterExport): Promise<ExportResult>,
-  extra(platform: string, leagueId: string, data: ExtraData): Promise<ExportResult>
+  extra(platform: string, leagueId: string, data: ExtraData): Promise<ExportResult>,  
+  complete(platform: string, leagueId: string): Promise<ExportResult>
 }
 
 export function MaddenUrlDestination(baseUrl: string): MaddenExportDestination {
@@ -114,6 +115,16 @@ export function MaddenUrlDestination(baseUrl: string): MaddenExportDestination {
       const res = await fetch(`${url}/${platform}/${leagueId}/extra`, {
         method: "POST",
         body: JSON.stringify(data),
+        headers: {
+          "Content-Type": "application/json",
+        }
+      })
+      return res.ok ? ExportResult.SUCCESS : ExportResult.FAILURE
+    },
+    complete: async function(platform: string, leagueId: string) {
+      const res = await fetch(`${url}/${platform}/${leagueId}/complete`, {
+        method: "POST",
+        body: JSON.stringify({ readyToImport: true }),
         headers: {
           "Content-Type": "application/json",
         }
@@ -210,6 +221,10 @@ export const SnallabotExportDestination: MaddenExportDestination = {
   },
   extra: async function(platform: string, leagueId: string, data: ExtraData) {
     // don't care
+    return ExportResult.SUCCESS
+  },
+  complete: async function(platform: string, leagueId: string) {
+    // this destination is read live, not polled/consumed-and-deleted - no signal needed
     return ExportResult.SUCCESS
   }
 }
@@ -325,6 +340,9 @@ const FileExportDestination: MaddenExportDestination = {
   extra: async function(platform: string, leagueId: string, data: ExtraData) {
     const path = `${platform}_${leagueId}_extraData.json`;
     await FileHandler.writeFile(data, path, defaultSerializer());
+    return ExportResult.SUCCESS;
+  },
+  async complete(platform: string, leagueId: string): Promise<ExportResult> {
     return ExportResult.SUCCESS;
   }
 };
