@@ -91,35 +91,39 @@ async function checkLeague(leagueId: string) {
   const { waitUntilDone } = exporter.exportSpecificWeeks(
     newlyCompleted.map(w => ({ weekIndex: w.weekIndex, stage: w.stageIndex }))
   )
-  // don't block the poll loop on the export finishing - only persist once it actually
-  // succeeds, so a failure just gets retried (same weeks are still "not exported") on
-  // the next cycle instead of getting silently marked done.
-  waitUntilDone
-    .then(() => markWeeksExported(leagueId, keys))
-    .catch(e => console.error(`Auto export failed for league ${leagueId} (${keys.join(", ")}): ${e}`))
+  // this runs once per Scheduler invocation, not inside a long-lived loop, so we have to
+  // actually wait for the export to finish before this function (and eventually the whole
+  // process) returns - otherwise the one-off dyno could exit mid-export. only persist once
+  // it succeeds, so a failure just gets retried (weeks stay "not exported") next run.
+  try {
+    await waitUntilDone
+    await markWeeksExported(leagueId, keys)
+  } catch (e) {
+    console.error(`Auto export failed for league ${leagueId} (${keys.join(", ")}): ${e}`)
+  }
 }
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-const SLEEP_MIN = 15
+// invoked by Heroku Scheduler on its own cadence (not a persistent worker dyno) - do one
+// pass through every connected league and exit, rather than looping/sleeping forever.
 async function runLeagueChecks() {
-  while (true) {
-    const leagues = await getLatestLeagues()
-    for (const leagueId of leagues) {
-      // avoid any overloading of EA
-      await sleep(12000)
-      try {
-        await checkLeague(leagueId)
-      } catch (e) {
-        console.error(`Error checking league ${leagueId}: ${e}`)
-      }
+  const leagues = await getLatestLeagues()
+  for (const leagueId of leagues) {
+    // avoid any overloading of EA
+    await sleep(12000)
+    try {
+      await checkLeague(leagueId)
+    } catch (e) {
+      console.error(`Error checking league ${leagueId}: ${e}`)
     }
-    console.log(`Check complete, sleeping for ${SLEEP_MIN} minutes...\n`)
-    await fetch("https://hc-ping.com/82b9220a-02cf-4ca1-9385-3c8b9463cff3")
-    await sleep(SLEEP_MIN * 60 * 1000)
   }
+  console.log(`Check complete\n`)
+  await fetch("https://hc-ping.com/82b9220a-02cf-4ca1-9385-3c8b9463cff3")
 }
 
 runLeagueChecks()
+  .catch(e => console.error(`Fatal error in league check pass: ${e}`))
+  .finally(() => process.exit(0))
