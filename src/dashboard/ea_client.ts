@@ -614,15 +614,6 @@ async function exportExtraData(data: ExtraData, destinations: { [key: string]: E
   }
 }
 
-async function signalExportComplete(destinations: { [key: string]: ExportDestination }, leagueId: string, platform: string) {
-  const allDestinations = Object.values(destinations).map(d => createDestination(d.url))
-  if (allDestinations.length > 0) {
-    await Promise.all(allDestinations.map(async d => {
-      await d.complete(platform, leagueId)
-    }))
-  }
-}
-
 async function handleExportTask(task: ExportJobTask): Promise<void> {
   const { leagueId, context, request } = task
   const client = await storedTokenClient(leagueId)
@@ -768,9 +759,6 @@ async function handleExportTask(task: ExportJobTask): Promise<void> {
     const extraData = { ...leagueInfo, leagueName, numMembers, calendarYear }
     await exportExtraData(extraData, contextualExports, `${leagueId}`, client.getSystemConsole())
   }
-  // everything this task intended to send has now landed successfully - let destinations
-  // know it's safe to read/process, instead of them having to guess from data shape or timing
-  await signalExportComplete(contextualExports, `${leagueId}`, client.getSystemConsole())
 }
 
 const exportQueue: queueAsPromised<ExportJobTask> = fastq.promise(handleExportTask, QUEUE_CONCURRENCY)
