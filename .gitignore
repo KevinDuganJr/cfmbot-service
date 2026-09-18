@@ -144,3 +144,8 @@ dist
 .yarn/install-state.gz
 .pnp.*
 cfmstats-501b6-firebase-adminsdk-fbsvc-fcf9533ae1.json
+
+# firebase cli
+firebase.json
+.firebaserc
+firestore*
