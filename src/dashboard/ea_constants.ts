@@ -378,7 +378,7 @@ export const exportOptions = {
     stage: Stage.SEASON,
     week: 18,
   },
-  "Wildcard Round": {
+  "Wild Card Round": {
     stage: Stage.SEASON,
     week: 19,
   },
