@@ -507,22 +507,6 @@ export async function storedTokenClient(leagueId: number): Promise<StoredEAClien
     ...eaClient
   }
 }
-// TEMP DEBUG ONLY - probing whether EA's weekly export commands accept a season/year
-// field to reach a prior season's data. Read-only (no Firestore writes besides the
-// existing token lookup), safe to call against a real league. Remove after testing.
-export async function debugRawWeeklyExport<T>(leagueId: number, exportType: LeagueData, stage: Stage, weekIndex: number, extra: Record<string, any> = {}): Promise<T> {
-  const doc = await db.collection("madden_data27").doc(`${leagueId}`).get()
-  if (!doc.exists) {
-    throw new Error(`League ${leagueId} not connected to CFMStats-bot`)
-  }
-  const leagueConnection = doc.data() as StoredMaddenConnection
-  const token = await getTokenForLeague(leagueConnection.blazeId)
-  const newToken = await refreshToken(token.token)
-  const session = token.session ? token.session : await retrieveBlazeSession(newToken)
-  const newSession = await refreshBlazeSession(newToken, session)
-  return await getExportData<T>(newToken, newSession, exportType, { leagueId, stageIndex: stage, weekIndex, ...extra })
-}
-
 enum ExportType {
   CURRENT = 0,
   SURROUNDING = 1,
