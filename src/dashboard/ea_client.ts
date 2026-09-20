@@ -269,12 +269,16 @@ async function getExportData<T>(
       typeof (parsed as any).error === "object"
     ) {
       const errorname = (parsed as any).error?.errorname
-      if (attempt < retries - 1) {
+      // only ERR_TIMEOUT is worth retrying - it's a transient network hiccup, not EA-wide load, so a
+      // few seconds of backoff has real odds of working. Other errors (e.g. EA being too busy) won't
+      // resolve within a ~30s retry window - retrying just adds latency and extra load on EA for no
+      // better odds, so fail fast and let the per-team failure/resync flow handle recovery instead.
+      if (errorname === "ERR_TIMEOUT" && attempt < retries - 1) {
         const delay = baseDelayMs * 2 ** attempt;
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
-      throw new EAAccountError(`EA request failed after ${retries} attempts, error: ${errorname}`, "No Guidance");
+      throw new EAAccountError(`EA request failed, error: ${errorname}`, "No Guidance");
     }
 
     return parsed as T;
@@ -725,14 +729,25 @@ async function handleExportTask(task: ExportJobTask): Promise<void> {
         weeklyData.weeks.push(weekData)
       })
 
-      // Process this batch and wait for completion before moving to next batch
-      await Promise.all(batchDataRequests)
-      await exportData(weeklyData as ExportData, contextualExports, `${leagueId}`, client.getSystemConsole())
-      task.status.weeklyData.forEach(w => {
-        if (weekBatch.some(b => w.weekIndex === b.weekIndex && w.stage === b.stage)) {
-          w.status = TaskStatus.FINISHED
-        }
-      })
+      // Process this batch and wait for completion before moving to next batch. Isolated so a bad
+      // week doesn't abort the whole task - schedules/team info/standings/rosters still need to go
+      // out even if one week's stats fail; that week can be retried on its own later.
+      try {
+        await Promise.all(batchDataRequests)
+        await exportData(weeklyData as ExportData, contextualExports, `${leagueId}`, client.getSystemConsole())
+        task.status.weeklyData.forEach(w => {
+          if (weekBatch.some(b => w.weekIndex === b.weekIndex && w.stage === b.stage)) {
+            w.status = TaskStatus.FINISHED
+          }
+        })
+      } catch (e) {
+        console.error(`Failed to export week batch ${JSON.stringify(weekBatch)} in league ${leagueId}: ${e}`)
+        task.status.weeklyData.forEach(w => {
+          if (weekBatch.some(b => w.weekIndex === b.weekIndex && w.stage === b.stage)) {
+            w.status = TaskStatus.ERROR
+          }
+        })
+      }
     }
   }
   if (destinations.some(e => e.rosters)) {
@@ -744,7 +759,7 @@ async function handleExportTask(task: ExportJobTask): Promise<void> {
       : fullTeamList
 
     // fetches and writes a single team's roster, isolating failures so one bad team
-    // doesn't take down the rest of the export - failures are recorded for a retry pass
+    // doesn't take down the rest of the export - failures are recorded in failedTeams
     async function syncTeamRoster(teamId: number, teamIndex: number): Promise<void> {
       try {
         const roster = await client.getTeamRoster(leagueId, teamId, teamIndex)
@@ -769,16 +784,8 @@ async function handleExportTask(task: ExportJobTask): Promise<void> {
       const batch = teamList.slice(idx, idx + batchSize)
       await Promise.all(batch.map(team => syncTeamRoster(team.teamId, fullTeamList.indexOf(team))))
     }
-
-    // one reconciliation pass: retry teams that failed due to a transient EA error
-    if (task.status.failedTeams.length > 0) {
-      const teamsToRetry = [...task.status.failedTeams]
-      task.status.failedTeams = []
-      for (const teamId of teamsToRetry) {
-        const teamIndex = fullTeamList.findIndex(t => t.teamId === teamId)
-        await syncTeamRoster(teamId, teamIndex)
-      }
-    }
+    // no in-process retry beyond this - if EA is too busy, retrying seconds later within the same
+    // run won't help. Teams left in failedTeams are picked up later via a targeted resync instead.
     // FINISHED means the export process itself ran to completion - it does not mean every team
     // succeeded. Remaining gaps are informational, carried in failedTeams, not a hard task error:
     // most teams synced fine, so this shouldn't read as "the export failed" to callers/UI.
