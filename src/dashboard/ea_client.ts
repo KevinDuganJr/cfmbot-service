@@ -528,7 +528,8 @@ export enum TaskStatus {
 }
 // save tasks for 1 hour
 const tasks = new NodeCache({ stdTTL: 7200, useClones: false })
-export type ExportStatus = { leagueInfo: TaskStatus, weeklyData: { weekIndex: number, stage: number, status: TaskStatus }[], rosters: TaskStatus, failedTeams: number[] }
+export type FailedTeam = { teamId: number, reason: string }
+export type ExportStatus = { leagueInfo: TaskStatus, weeklyData: { weekIndex: number, stage: number, status: TaskStatus }[], rosters: TaskStatus, failedTeams: FailedTeam[] }
 type ExportJobTask = { id: string, leagueId: number, context: ExportContext, request: ExportRequest, status: ExportStatus }
 export type ExportResult = { task: ExportJobTask, waitUntilDone: Promise<void> }
 interface MaddenExporter {
@@ -765,8 +766,9 @@ async function handleExportTask(task: ExportJobTask): Promise<void> {
         const roster = await client.getTeamRoster(leagueId, teamId, teamIndex)
         await exportTeamData({ roster: { [`${teamId}`]: roster } }, contextualExports, `${leagueId}`, client.getSystemConsole())
       } catch (e) {
-        console.error(`Failed to export roster for team ${teamId} in league ${leagueId}: ${e}`)
-        task.status.failedTeams.push(teamId)
+        const reason = e instanceof Error ? e.message : String(e)
+        console.error(`Failed to export roster for team ${teamId} in league ${leagueId}: ${reason}`)
+        task.status.failedTeams.push({ teamId, reason })
       }
     }
 
