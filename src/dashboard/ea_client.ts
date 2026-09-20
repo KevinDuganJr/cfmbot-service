@@ -266,15 +266,15 @@ async function getExportData<T>(
       typeof parsed === "object" &&
       parsed !== null &&
       "error" in parsed &&
-      typeof (parsed as any).error === "object" &&
-      (parsed as any).error?.errorname === "ERR_TIMEOUT"
+      typeof (parsed as any).error === "object"
     ) {
+      const errorname = (parsed as any).error?.errorname
       if (attempt < retries - 1) {
         const delay = baseDelayMs * 2 ** attempt;
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
-      throw new EAAccountError(`EA request timed out after ${retries} attempts`, "No Guidance");
+      throw new EAAccountError(`EA request failed after ${retries} attempts, error: ${errorname}`, "No Guidance");
     }
 
     return parsed as T;
@@ -511,9 +511,10 @@ enum ExportType {
   CURRENT = 0,
   SURROUNDING = 1,
   ALL = 2,
-  SPECIFIC = 3
+  SPECIFIC = 3,
+  TEAMS = 4
 }
-type ExportRequest = { exportType: ExportType, weeks?: { weekIndex: number, stage: number }[] }
+type ExportRequest = { exportType: ExportType, weeks?: { weekIndex: number, stage: number }[], teamIds?: number[] }
 
 export enum TaskStatus {
   NOT_STARTED = 0,
@@ -523,14 +524,15 @@ export enum TaskStatus {
 }
 // save tasks for 1 hour
 const tasks = new NodeCache({ stdTTL: 7200, useClones: false })
-export type ExportStatus = { leagueInfo: TaskStatus, weeklyData: { weekIndex: number, stage: number, status: TaskStatus }[], rosters: TaskStatus }
+export type ExportStatus = { leagueInfo: TaskStatus, weeklyData: { weekIndex: number, stage: number, status: TaskStatus }[], rosters: TaskStatus, failedTeams: number[] }
 type ExportJobTask = { id: string, leagueId: number, context: ExportContext, request: ExportRequest, status: ExportStatus }
 export type ExportResult = { task: ExportJobTask, waitUntilDone: Promise<void> }
 interface MaddenExporter {
   exportCurrentWeek(): ExportResult,
   exportAllWeeks(): ExportResult,
   exportSpecificWeeks(weeks: { weekIndex: number, stage: number }[]): ExportResult,
-  exportSurroundingWeek(): ExportResult
+  exportSurroundingWeek(): ExportResult,
+  exportTeams(teamIds: number[]): ExportResult
 }
 export enum ExportContext {
   UNKNOWN = "UNKNOWN",
@@ -665,9 +667,13 @@ async function handleExportTask(task: ExportJobTask): Promise<void> {
   } else if (request.exportType === ExportType.SPECIFIC && request.weeks) {
     exportCounter.inc({ export_type: "SPECIFIC_WEEKS" })
     request.weeks.forEach(w => weeksToExport.push(w))
+  } else if (request.exportType === ExportType.TEAMS) {
+    exportCounter.inc({ export_type: "TEAMS" })
   } else {
     throw new Error(`Invalid Export Task Request! ${request}`)
   }
+  // a targeted team resync only touches rosters, not league info or weekly stats
+  const rosterOnly = request.exportType === ExportType.TEAMS
   const destinations = Object.values(contextualExports)
   const leagueData = { weeks: [] } as any
   const leagueInfoRequests = [] as Promise<any>[]
@@ -675,15 +681,17 @@ async function handleExportTask(task: ExportJobTask): Promise<void> {
     return stage === 0 ? Stage.PRESEASON : Stage.SEASON
   }
   task.status.leagueInfo = TaskStatus.STARTED
-  if (destinations.some(e => e.leagueInfo)) {
+  if (!rosterOnly && destinations.some(e => e.leagueInfo)) {
     leagueInfoRequests.push(client.getTeams(leagueId).then(t => leagueData.leagueTeams = t))
     leagueInfoRequests.push(client.getStandings(leagueId).then(t => leagueData.standings = t))
   }
   await Promise.all(leagueInfoRequests)
-  await exportData(leagueData as ExportData, contextualExports, `${leagueId}`, client.getSystemConsole())
+  if (!rosterOnly) {
+    await exportData(leagueData as ExportData, contextualExports, `${leagueId}`, client.getSystemConsole())
+  }
   task.status.leagueInfo = TaskStatus.FINISHED
   task.status.weeklyData = weeksToExport.map(w => ({ ...w, status: TaskStatus.NOT_STARTED }))
-  if (destinations.some(e => e.weeklyStats)) {
+  if (!rosterOnly && destinations.some(e => e.weeklyStats)) {
     // Process weeks in batches to reduce memory usage on big exports
     const batchSize = 2;
     for (let i = 0; i < weeksToExport.length; i += batchSize) {
@@ -723,34 +731,51 @@ async function handleExportTask(task: ExportJobTask): Promise<void> {
   }
   if (destinations.some(e => e.rosters)) {
     task.status.rosters = TaskStatus.STARTED
-    let teamRequests = [] as Promise<any>[]
-    let teamData: TeamData = { roster: {} }
-    const teamList = leagueInfo.teamIdInfoList
-    teamRequests.push(client.getFreeAgents(leagueId).then(freeAgents => teamData.roster["freeagents"] = freeAgents))
-    const batchSize = 4;
-    for (let idx = 0; idx < teamList.length; idx++) {
-      const team = teamList[idx];
-      teamRequests.push(
-        client.getTeamRoster(leagueId, team.teamId, idx).then(roster =>
-          teamData.roster[`${team.teamId}`] = roster
-        )
-      )
-      if ((idx + 1) % batchSize == 0) {
-        await Promise.all(teamRequests)
-        await exportTeamData(teamData, contextualExports, `${leagueId}`, client.getSystemConsole())
-        teamRequests = []
-        teamData = { roster: {} }
+    task.status.failedTeams = []
+    const fullTeamList = leagueInfo.teamIdInfoList
+    const teamList = rosterOnly && request.teamIds
+      ? fullTeamList.filter(t => request.teamIds!.includes(t.teamId))
+      : fullTeamList
+
+    // fetches and writes a single team's roster, isolating failures so one bad team
+    // doesn't take down the rest of the export - failures are recorded for a retry pass
+    async function syncTeamRoster(teamId: number, teamIndex: number): Promise<void> {
+      try {
+        const roster = await client.getTeamRoster(leagueId, teamId, teamIndex)
+        await exportTeamData({ roster: { [`${teamId}`]: roster } }, contextualExports, `${leagueId}`, client.getSystemConsole())
+      } catch (e) {
+        console.error(`Failed to export roster for team ${teamId} in league ${leagueId}: ${e}`)
+        task.status.failedTeams.push(teamId)
       }
     }
-    if (teamRequests.length > 0) {
-      await Promise.all(teamRequests)
-      await exportTeamData(teamData, contextualExports, `${leagueId}`, client.getSystemConsole())
-      teamRequests = []
-      teamData = { roster: {} }
+
+    if (!rosterOnly) {
+      try {
+        const freeAgents = await client.getFreeAgents(leagueId)
+        await exportTeamData({ roster: { freeagents: freeAgents } }, contextualExports, `${leagueId}`, client.getSystemConsole())
+      } catch (e) {
+        console.error(`Failed to export free agents in league ${leagueId}: ${e}`)
+      }
     }
-    task.status.rosters = TaskStatus.FINISHED
+
+    const batchSize = 4;
+    for (let idx = 0; idx < teamList.length; idx += batchSize) {
+      const batch = teamList.slice(idx, idx + batchSize)
+      await Promise.all(batch.map(team => syncTeamRoster(team.teamId, fullTeamList.indexOf(team))))
+    }
+
+    // one reconciliation pass: retry teams that failed due to a transient EA error
+    if (task.status.failedTeams.length > 0) {
+      const teamsToRetry = [...task.status.failedTeams]
+      task.status.failedTeams = []
+      for (const teamId of teamsToRetry) {
+        const teamIndex = fullTeamList.findIndex(t => t.teamId === teamId)
+        await syncTeamRoster(teamId, teamIndex)
+      }
+    }
+    task.status.rosters = task.status.failedTeams.length > 0 ? TaskStatus.ERROR : TaskStatus.FINISHED
   }
-  if (destinations.some(e => e.extraData)) {
+  if (!rosterOnly && destinations.some(e => e.extraData)) {
     const {
       leagueName,
       numMembers,
@@ -801,7 +826,7 @@ function getOrEnqueueTask(leagueId: number, buildTask: (taskId: string, status: 
     return { task: existing.task, waitUntilDone: existing.promise }
   }
   const taskId = randomUUID()
-  const status = { leagueInfo: TaskStatus.NOT_STARTED, weeklyData: [], rosters: TaskStatus.NOT_STARTED }
+  const status = { leagueInfo: TaskStatus.NOT_STARTED, weeklyData: [], rosters: TaskStatus.NOT_STARTED, failedTeams: [] }
   const task = buildTask(taskId, status)
   return { task, waitUntilDone: addTaskToQueue(task) }
 }
@@ -826,6 +851,11 @@ export function exporterForLeague(leagueId: number, context: ExportContext): Mad
     exportSpecificWeeks: function(weeks: { weekIndex: number, stage: number }[]) {
       return getOrEnqueueTask(leagueId, (taskId, status) => (
         { id: taskId, request: { exportType: ExportType.SPECIFIC, weeks }, leagueId, context, status }
+      ))
+    },
+    exportTeams: function(teamIds: number[]) {
+      return getOrEnqueueTask(leagueId, (taskId, status) => (
+        { id: taskId, request: { exportType: ExportType.TEAMS, teamIds }, leagueId, context, status }
       ))
     }
   }

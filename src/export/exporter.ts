@@ -206,6 +206,7 @@ export const SnallabotExportDestination: MaddenExportDestination = {
       const { experiencePoints, legacyScore, confRating, productionGrade, teamSchemeOvr, intangibleGrade, ...rest } = e
       return await hash(rest)
     })
+    await MaddenDB.updateRosterExportStatus(leagueId, MaddenEvents.MADDEN_PLAYER, teamId)
     return ExportResult.SUCCESS
   },
   extra: async function(platform: string, leagueId: string, data: ExtraData) {

@@ -376,6 +376,17 @@ router.get("/", async (ctx) => {
   ctx.body = {
     taskId: task.id
   }
+}).post("/league/:leagueId/export/teams", async (ctx, next) => {
+  const { leagueId: rawLeagueId } = ctx.params
+  const { teamIds } = ctx.request.body as { teamIds: number[] }
+  const leagueId = Number(rawLeagueId)
+  const exporter = exporterForLeague(leagueId, ExportContext.MANUAL)
+  const { task, waitUntilDone } = exporter.exportTeams(teamIds)
+  waitUntilDone.catch(e => { })
+  ctx.status = 200
+  ctx.body = {
+    taskId: task.id
+  }
 }).post("/league/exportStatus", async (ctx, next) => {
   const { taskId } = ctx.request.body as { taskId: string }
   const task = getTask(taskId)
