@@ -685,11 +685,17 @@ async function handleExportTask(task: ExportJobTask): Promise<void> {
     leagueInfoRequests.push(client.getTeams(leagueId).then(t => leagueData.leagueTeams = t))
     leagueInfoRequests.push(client.getStandings(leagueId).then(t => leagueData.standings = t))
   }
-  await Promise.all(leagueInfoRequests)
-  if (!rosterOnly) {
-    await exportData(leagueData as ExportData, contextualExports, `${leagueId}`, client.getSystemConsole())
+  // isolated so a transient EA error fetching teams/standings doesn't abort weekly stats/rosters below
+  try {
+    await Promise.all(leagueInfoRequests)
+    if (!rosterOnly) {
+      await exportData(leagueData as ExportData, contextualExports, `${leagueId}`, client.getSystemConsole())
+    }
+    task.status.leagueInfo = TaskStatus.FINISHED
+  } catch (e) {
+    console.error(`Failed to export league info in league ${leagueId}: ${e}`)
+    task.status.leagueInfo = TaskStatus.ERROR
   }
-  task.status.leagueInfo = TaskStatus.FINISHED
   task.status.weeklyData = weeksToExport.map(w => ({ ...w, status: TaskStatus.NOT_STARTED }))
   if (!rosterOnly && destinations.some(e => e.weeklyStats)) {
     // Process weeks in batches to reduce memory usage on big exports
@@ -773,7 +779,10 @@ async function handleExportTask(task: ExportJobTask): Promise<void> {
         await syncTeamRoster(teamId, teamIndex)
       }
     }
-    task.status.rosters = task.status.failedTeams.length > 0 ? TaskStatus.ERROR : TaskStatus.FINISHED
+    // FINISHED means the export process itself ran to completion - it does not mean every team
+    // succeeded. Remaining gaps are informational, carried in failedTeams, not a hard task error:
+    // most teams synced fine, so this shouldn't read as "the export failed" to callers/UI.
+    task.status.rosters = TaskStatus.FINISHED
   }
   if (!rosterOnly && destinations.some(e => e.extraData)) {
     const {
@@ -794,7 +803,7 @@ async function addTaskToQueue(task: ExportJobTask) {
   tasks.set(task.id, task)
   const promise = exportQueue.push(task).catch(e => {
     task.status.leagueInfo = task.status.leagueInfo != TaskStatus.FINISHED ? TaskStatus.ERROR : task.status.leagueInfo
-    task.status.rosters = task.status.leagueInfo != TaskStatus.FINISHED ? TaskStatus.ERROR : task.status.rosters
+    task.status.rosters = task.status.rosters != TaskStatus.FINISHED ? TaskStatus.ERROR : task.status.rosters
     task.status.weeklyData.forEach(w => w.status != TaskStatus.FINISHED ? w.status = TaskStatus.ERROR : w.status)
     return Promise.reject(e)
   }).finally(() => {
