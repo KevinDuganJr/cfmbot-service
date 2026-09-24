@@ -269,10 +269,10 @@ async function getExportData<T>(
       typeof (parsed as any).error === "object"
     ) {
       const errorname = (parsed as any).error?.errorname
-      // only ERR_TIMEOUT is worth retrying - it's a transient network hiccup, not EA-wide load, so a
-      // few seconds of backoff has real odds of working. Other errors (e.g. EA being too busy) won't
-      // resolve within a ~30s retry window - retrying just adds latency and extra load on EA for no
-      // better odds, so fail fast and let the per-team failure/resync flow handle recovery instead.
+      // only ERR_TIMEOUT is retried here - it's a transient network hiccup, so a few seconds of
+      // backoff has real odds of working. Other errors (e.g. EA being too busy) fail fast: backing
+      // off in place while the rest of a batch is still hammering EA doesn't help. Roster exports
+      // recover from those via the end-of-run retry pass in handleExportTask, once the burst is over.
       if (errorname === "ERR_TIMEOUT" && attempt < retries - 1) {
         const delay = baseDelayMs * 2 ** attempt;
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -528,8 +528,13 @@ export enum TaskStatus {
 }
 // save tasks for 1 hour
 const tasks = new NodeCache({ stdTTL: 7200, useClones: false })
+// how long to wait after the roster burst before retrying teams EA rejected as too busy
+const ROSTER_RETRY_DELAY_MS = 30_000
 export type FailedTeam = { teamId: number, reason: string }
-export type ExportStatus = { leagueInfo: TaskStatus, weeklyData: { weekIndex: number, stage: number, status: TaskStatus }[], rosters: TaskStatus, failedTeams: FailedTeam[] }
+// present only while the end-of-run roster retry pass is in progress, so pollers can show what's
+// happening instead of an export that looks stuck. retryAt is the ISO time the retries begin.
+export type RosterRetryStatus = { teamIds: number[], state: "WAITING" | "RETRYING", retryAt: string }
+export type ExportStatus = { leagueInfo: TaskStatus, weeklyData: { weekIndex: number, stage: number, status: TaskStatus }[], rosters: TaskStatus, failedTeams: FailedTeam[], rosterRetry?: RosterRetryStatus }
 type ExportJobTask = { id: string, leagueId: number, context: ExportContext, request: ExportRequest, status: ExportStatus }
 export type ExportResult = { task: ExportJobTask, waitUntilDone: Promise<void> }
 interface MaddenExporter {
@@ -786,8 +791,29 @@ async function handleExportTask(task: ExportJobTask): Promise<void> {
       const batch = teamList.slice(idx, idx + batchSize)
       await Promise.all(batch.map(team => syncTeamRoster(team.teamId, fullTeamList.indexOf(team))))
     }
-    // no in-process retry beyond this - if EA is too busy, retrying seconds later within the same
-    // run won't help. Teams left in failedTeams are picked up later via a targeted resync instead.
+    // EA's "too busy" rejections are driven by the burst of roster requests, not EA-wide load - a
+    // targeted resync of just the missed teams shortly afterwards reliably succeeds. So once the
+    // burst is over, wait briefly and retry the failed teams one at a time. Teams that still fail
+    // stay in failedTeams and can be picked up via a targeted resync.
+    if (task.status.failedTeams.length > 0) {
+      const retryTeamIds = task.status.failedTeams.map(t => t.teamId)
+      console.log(`Retrying rosters for ${retryTeamIds.length} team(s) in league ${leagueId} after ${ROSTER_RETRY_DELAY_MS}ms: ${retryTeamIds.join(", ")}`)
+      const retryAt = new Date(Date.now() + ROSTER_RETRY_DELAY_MS).toISOString()
+      task.status.rosterRetry = { teamIds: retryTeamIds, state: "WAITING", retryAt }
+      try {
+        await new Promise(resolve => setTimeout(resolve, ROSTER_RETRY_DELAY_MS))
+        task.status.rosterRetry = { teamIds: retryTeamIds, state: "RETRYING", retryAt }
+        for (const teamId of retryTeamIds) {
+          const team = fullTeamList.find(t => t.teamId === teamId)
+          if (!team) continue
+          // drop the earlier failure - syncTeamRoster re-records it if the retry also fails
+          task.status.failedTeams = task.status.failedTeams.filter(t => t.teamId !== teamId)
+          await syncTeamRoster(teamId, fullTeamList.indexOf(team))
+        }
+      } finally {
+        delete task.status.rosterRetry
+      }
+    }
     // FINISHED means the export process itself ran to completion - it does not mean every team
     // succeeded. Remaining gaps are informational, carried in failedTeams, not a hard task error:
     // most teams synced fine, so this shouldn't read as "the export failed" to callers/UI.
